@@ -1,4 +1,4 @@
-use bevy::{prelude::*, utils::label::DynEq};
+use bevy::prelude::*;
 use leafwing_input_manager::{axislike::DualAxisData, prelude::*};
 use std::fmt::Debug;
 
@@ -6,51 +6,43 @@ pub struct DebugCameraPlugin;
 impl Plugin for DebugCameraPlugin {
     fn build(&self, app: &mut App) {
         app.add_startup_system(spawn_debug_camera)
-            .add_plugin(InputManagerPlugin::<CameraBind>::default())
+            .add_plugin(InputManagerPlugin::<CameraAction>::default())
+            .add_plugin(InputManagerPlugin::<CameraMovement>::default())
             .add_system(update_debug_camera);
     }
 }
 
 #[derive(Actionlike, Clone, Debug, Copy, PartialEq, Eq)]
-pub enum CameraBind {
+pub enum CameraMovement {
+    Left,
+    Right,
+    Forward,
+    Backwards,
+    Up,
+    Down,
+}
+
+impl CameraMovement {
+    pub fn into_vec(self) -> Vec3 {
+        match self {
+            CameraMovement::Up => Vec3::Y,
+            CameraMovement::Down => Vec3::NEG_Y,
+            CameraMovement::Right => Vec3::X,
+            CameraMovement::Left => Vec3::NEG_X,
+            CameraMovement::Backwards => Vec3::Z,
+            CameraMovement::Forward => Vec3::NEG_Z,
+        }
+    }
+}
+
+#[derive(Actionlike, Clone, Debug, Copy, PartialEq, Eq)]
+pub enum CameraAction {
     Arc,
     ArcTrigger,
     Pan,
     PanTrigger,
     Zoom,
-    MoveLeft,
-    MoveRight,
-    MoveForward,
-    MoveBackwards,
-    MoveUp,
-    MoveDown,
     ToggleSens,
-}
-impl CameraBind {
-    const MOVE_ACTIONS: [Self; 6] = [
-        CameraBind::MoveLeft,
-        CameraBind::MoveRight,
-        CameraBind::MoveForward,
-        CameraBind::MoveBackwards,
-        CameraBind::MoveUp,
-        CameraBind::MoveDown,
-    ];
-
-    pub fn is_move_action(&self) -> bool {
-        Self::MOVE_ACTIONS.contains(self)
-    }
-
-    pub fn into_vec(self) -> Vec3 {
-        match self {
-            CameraBind::MoveUp => Vec3::Y,
-            CameraBind::MoveDown => Vec3::NEG_Y,
-            CameraBind::MoveRight => Vec3::X,
-            CameraBind::MoveLeft => Vec3::NEG_X,
-            CameraBind::MoveBackwards => Vec3::Z,
-            CameraBind::MoveForward => Vec3::NEG_Z,
-            _ => Vec3::ZERO,
-        }
-    }
 }
 
 #[derive(Component)]
@@ -83,19 +75,24 @@ fn spawn_debug_camera(mut commands: Commands) {
             radius,
             ..Default::default()
         })
-        .insert_bundle(InputManagerBundle::<CameraBind> {
+        .insert_bundle(InputManagerBundle::<CameraAction> {
             input_map: InputMap::default()
-                .insert(DualAxis::mouse_motion(), CameraBind::Pan)
-                .insert(DualAxis::mouse_wheel(), CameraBind::Zoom)
-                .insert(MouseButton::Right, CameraBind::ArcTrigger)
-                .insert(MouseButton::Middle, CameraBind::PanTrigger)
-                .insert(KeyCode::W, CameraBind::MoveForward)
-                .insert(KeyCode::A, CameraBind::MoveLeft)
-                .insert(KeyCode::S, CameraBind::MoveBackwards)
-                .insert(KeyCode::D, CameraBind::MoveRight)
-                .insert(KeyCode::Space, CameraBind::MoveUp)
-                .insert(KeyCode::LControl, CameraBind::MoveDown)
-                .insert(KeyCode::LShift, CameraBind::ToggleSens)
+                .insert(DualAxis::mouse_motion(), CameraAction::Pan)
+                .insert(DualAxis::mouse_wheel(), CameraAction::Zoom)
+                .insert(MouseButton::Right, CameraAction::ArcTrigger)
+                .insert(MouseButton::Middle, CameraAction::PanTrigger)
+                .insert(KeyCode::LShift, CameraAction::ToggleSens)
+                .build(),
+            action_state: ActionState::default(),
+        })
+        .insert_bundle(InputManagerBundle::<CameraMovement> {
+            input_map: InputMap::default()
+                .insert(KeyCode::W, CameraMovement::Forward)
+                .insert(KeyCode::A, CameraMovement::Left)
+                .insert(KeyCode::S, CameraMovement::Backwards)
+                .insert(KeyCode::D, CameraMovement::Right)
+                .insert(KeyCode::Space, CameraMovement::Up)
+                .insert(KeyCode::LControl, CameraMovement::Down)
                 .build(),
             action_state: ActionState::default(),
         });
@@ -103,33 +100,38 @@ fn spawn_debug_camera(mut commands: Commands) {
 
 fn update_debug_camera(
     windows: Res<Windows>,
-    mut q: Query<(&mut DebugCamera, &mut Transform, &ActionState<CameraBind>)>,
+    mut q: Query<(
+        &mut DebugCamera,
+        &mut Transform,
+        &ActionState<CameraAction>,
+        &ActionState<CameraMovement>,
+    )>,
 ) {
-    let (mut camera, mut transform, action_state) = q.single_mut();
+    let (mut camera, mut transform, actions, movement) = q.single_mut();
 
-    let pan = action_state.axis_pair(CameraBind::Pan).unwrap();
-    let zoom = action_state.axis_pair(CameraBind::Zoom).unwrap();
+    let pan = actions.axis_pair(CameraAction::Pan).unwrap();
+    let zoom = actions.axis_pair(CameraAction::Zoom).unwrap();
 
     camera.upside_down = (transform.rotation * Vec3::Y).y <= 0.0;
 
-    action_state
+    actions
         .get_pressed()
         .iter()
         .for_each(|action| match action {
-            CameraBind::ArcTrigger => arc_movement(&mut transform, pan),
-            CameraBind::PanTrigger => pan_movement(&mut transform, pan),
-            x if x.is_move_action() => move_action(&mut transform, x),
+            CameraAction::ArcTrigger => arc_movement(&mut transform, pan),
+            CameraAction::PanTrigger => pan_movement(&mut transform, pan),
+            // TODO: Zoom
             _ => (),
         });
+
+    movement
+        .get_pressed()
+        .iter()
+        .for_each(|movement| move_action(&mut transform, movement));
 
     if zoom.length_squared() == 0.0 {
         zoom_action(&mut transform, zoom)
     }
-}
-
-fn zoom_action(transform: &mut Mut<Transform>, zoom: DualAxisData) {
-    transform.rotation = Quat::from_rotation_y(-zoom.x() * 0.005) * transform.rotation;
-    transform.rotation *= Quat::from_rotation_x(-zoom.y() * 0.005);
 }
 
 fn arc_movement(transform: &mut Mut<Transform>, pan: DualAxisData) {
@@ -143,20 +145,25 @@ fn pan_movement(transform: &mut Mut<Transform>, pan: DualAxisData) {
     transform.translation = transform.translation - dx + dy;
 }
 
-fn move_action(transform: &mut Mut<Transform>, action: &CameraBind) {
-    let mut direction = match action {
-        CameraBind::MoveUp => Vec3::Y,
-        CameraBind::MoveDown => Vec3::NEG_Y,
-        CameraBind::MoveRight => Vec3::X,
-        CameraBind::MoveLeft => Vec3::NEG_X,
-        CameraBind::MoveBackwards => Vec3::Z,
-        CameraBind::MoveForward => Vec3::NEG_Z,
-        _ => Vec3::ZERO,
+fn zoom_action(transform: &mut Mut<Transform>, zoom: DualAxisData) {
+    transform.rotation = Quat::from_rotation_y(-zoom.x() * 0.005) * transform.rotation;
+    transform.rotation *= Quat::from_rotation_x(-zoom.y() * 0.005);
+}
+
+fn move_action(transform: &mut Mut<Transform>, movement: &CameraMovement) {
+    let mut direction = match movement {
+        CameraMovement::Up => Vec3::Y,
+        CameraMovement::Down => Vec3::NEG_Y,
+        CameraMovement::Right => Vec3::X,
+        CameraMovement::Left => Vec3::NEG_X,
+        CameraMovement::Backwards => Vec3::Z,
+        CameraMovement::Forward => Vec3::NEG_Z,
     };
 
     // Apply up and down movements on global axis
-    if *action != CameraBind::MoveUp && *action != CameraBind::MoveDown {
+    if *movement != CameraMovement::Up && *movement != CameraMovement::Down {
         direction = transform.rotation * direction;
     }
+
     transform.translation += direction * 0.005;
 }
