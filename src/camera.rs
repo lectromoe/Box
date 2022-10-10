@@ -1,7 +1,6 @@
-use std::fmt::Debug;
-
 use bevy::prelude::*;
 use leafwing_input_manager::prelude::*;
+use std::fmt::Debug;
 
 pub struct DebugCameraPlugin;
 impl Plugin for DebugCameraPlugin {
@@ -12,20 +11,44 @@ impl Plugin for DebugCameraPlugin {
     }
 }
 
+#[derive(Clone, Debug, Copy, PartialEq, Eq)]
+pub enum Direction {
+    Left,
+    Right,
+    Forward,
+    Backwards,
+    Up,
+    Down,
+    None,
+}
+impl Default for Direction {
+    fn default() -> Self {
+        Direction::None
+    }
+}
+impl Direction {
+    pub fn into_vec(self) -> Vec3 {
+        match self {
+            Direction::Up => Vec3::Y,
+            Direction::Down => Vec3::NEG_Y,
+            Direction::Right => Vec3::X,
+            Direction::Left => Vec3::NEG_X,
+            Direction::Forward => Vec3::Z,
+            Direction::Backwards => Vec3::NEG_Z,
+            Direction::None => Vec3::ZERO,
+        }
+    }
+}
+
 #[derive(Actionlike, Clone, Debug, Copy, PartialEq, Eq)]
 pub enum CameraBinds {
     Arc,
     ArcTrigger,
     Pan,
     Tilt,
-    MoveTrigger,
+    PanTrigger,
     Zoom,
-    MoveLeft,
-    MoveRight,
-    MoveForward,
-    MoveBackwards,
-    MoveUp,
-    MoveDown,
+    Move(Direction),
 }
 
 #[derive(Component)]
@@ -64,8 +87,13 @@ fn spawn_debug_camera(mut commands: Commands) {
                 .insert(DualAxis::mouse_motion().y, CameraBinds::Tilt)
                 .insert(DualAxis::mouse_wheel(), CameraBinds::Zoom)
                 .insert(MouseButton::Right, CameraBinds::ArcTrigger)
-                .insert(MouseButton::Middle, CameraBinds::MoveTrigger)
-                // .insert(InputButton::, CameraBinds::MoveTrigger)
+                .insert(MouseButton::Middle, CameraBinds::PanTrigger)
+                .insert(KeyCode::W, CameraBinds::Move(Direction::Forward))
+                .insert(KeyCode::A, CameraBinds::Move(Direction::Left))
+                .insert(KeyCode::S, CameraBinds::Move(Direction::Right))
+                .insert(KeyCode::D, CameraBinds::Move(Direction::Backwards))
+                .insert(KeyCode::Space, CameraBinds::Move(Direction::Up))
+                .insert(KeyCode::LShift, CameraBinds::Move(Direction::Down))
                 .build(),
             action_state: ActionState::default(),
         });
@@ -80,17 +108,34 @@ fn update_debug_camera(
     let pan = action_state.action_data(CameraBinds::Pan).value;
     let tilt = action_state.action_data(CameraBinds::Tilt).value;
     let zoom = action_state.axis_pair(CameraBinds::Zoom).unwrap();
+
     camera.upside_down = (transform.rotation * Vec3::Y).y <= 0.0;
 
-    if action_state.pressed(CameraBinds::MoveTrigger) {
-        let dx = transform.rotation * Vec3::X * 0.005 * pan;
-        let dy = transform.rotation * Vec3::Y * 0.005 * tilt;
-        transform.translation -= dx;
-        transform.translation += dy;
-    }
+    action_state
+        .get_pressed()
+        .iter()
+        .for_each(|action| match action {
+            CameraBinds::ArcTrigger => arc_movement(&mut transform, pan, tilt),
+            CameraBinds::PanTrigger => pan_movement(&mut transform, pan, tilt),
+            CameraBinds::Move(direction) => direction_movement(&mut transform, direction),
+            _ => (),
+        });
+}
 
-    if action_state.pressed(CameraBinds::ArcTrigger) {
-        transform.rotation = Quat::from_rotation_y(-pan * 0.005) * transform.rotation;
-        transform.rotation *= Quat::from_rotation_x(-tilt * 0.005);
-    }
+fn arc_movement(transform: &mut Mut<Transform>, pan: f32, tilt: f32) {
+    transform.rotation = Quat::from_rotation_y(-pan * 0.005) * transform.rotation;
+    transform.rotation *= Quat::from_rotation_x(-tilt * 0.005);
+}
+
+fn pan_movement(transform: &mut Mut<Transform>, pan: f32, tilt: f32) {
+    let dx = transform.rotation * Vec3::X * 0.005 * pan;
+    let dy = transform.rotation * Vec3::Y * 0.005 * tilt;
+    transform.translation -= dx;
+    transform.translation += dy;
+}
+
+fn direction_movement(transform: &mut Mut<Transform>, direction: &Direction) {
+    bevy::log::info!("{:?}", direction);
+    bevy::log::info!("{}", direction.into_vec());
+    transform.translation += direction.into_vec();
 }
