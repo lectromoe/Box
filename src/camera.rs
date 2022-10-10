@@ -14,12 +14,18 @@ impl Plugin for DebugCameraPlugin {
 
 #[derive(Actionlike, Clone, Debug, Copy, PartialEq, Eq)]
 pub enum CameraBinds {
+    Arc,
+    ArcTrigger,
     Pan,
     Tilt,
-    Zoom,
-    Orbit,
     MoveTrigger,
-    OrbitTrigger,
+    Zoom,
+    MoveLeft,
+    MoveRight,
+    MoveForward,
+    MoveBackwards,
+    MoveUp,
+    MoveDown,
 }
 
 #[derive(Component)]
@@ -57,8 +63,9 @@ fn spawn_debug_camera(mut commands: Commands) {
                 .insert(DualAxis::mouse_motion().x, CameraBinds::Pan)
                 .insert(DualAxis::mouse_motion().y, CameraBinds::Tilt)
                 .insert(DualAxis::mouse_wheel(), CameraBinds::Zoom)
-                .insert(MouseButton::Right, CameraBinds::OrbitTrigger)
+                .insert(MouseButton::Right, CameraBinds::ArcTrigger)
                 .insert(MouseButton::Middle, CameraBinds::MoveTrigger)
+                // .insert(InputButton::, CameraBinds::MoveTrigger)
                 .build(),
             action_state: ActionState::default(),
         });
@@ -66,16 +73,24 @@ fn spawn_debug_camera(mut commands: Commands) {
 
 fn update_debug_camera(
     windows: Res<Windows>,
-    mut q: Query<(&mut Transform, &ActionState<CameraBinds>), With<DebugCamera>>,
+    mut q: Query<(&mut DebugCamera, &mut Transform, &ActionState<CameraBinds>)>,
 ) {
-    let (mut transform, action_state) = q.single_mut();
-    let mut pan = action_state.action_data(CameraBinds::Pan).value;
-    let mut tilt = action_state.action_data(CameraBinds::Tilt).value;
-    let mut zoom = action_state.axis_pair(CameraBinds::Zoom).unwrap();
+    let (mut camera, mut transform, action_state) = q.single_mut();
+
+    let pan = action_state.action_data(CameraBinds::Pan).value;
+    let tilt = action_state.action_data(CameraBinds::Tilt).value;
+    let zoom = action_state.axis_pair(CameraBinds::Zoom).unwrap();
+    camera.upside_down = (transform.rotation * Vec3::Y).y <= 0.0;
 
     if action_state.pressed(CameraBinds::MoveTrigger) {
-        transform.translation.x -= 0.005 * pan;
-        transform.translation.y -= 0.005 * tilt;
+        let dx = transform.rotation * Vec3::X * 0.005 * pan;
+        let dy = transform.rotation * Vec3::Y * 0.005 * tilt;
+        transform.translation -= dx;
+        transform.translation += dy;
     }
 
+    if action_state.pressed(CameraBinds::ArcTrigger) {
+        transform.rotation = Quat::from_rotation_y(-pan * 0.005) * transform.rotation;
+        transform.rotation *= Quat::from_rotation_x(-tilt * 0.005);
+    }
 }
