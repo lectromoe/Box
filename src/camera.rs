@@ -13,6 +13,29 @@ impl Plugin for DebugCameraPlugin {
     }
 }
 
+#[derive(Component)]
+pub struct DebugCamera {
+    pub locked_in: bool,
+    pub focus: Vec3,
+    pub radius: f32,
+    pub sens: f32,
+    pub look_sens: f32,
+    pub upside_down: bool,
+}
+
+impl Default for DebugCamera {
+    fn default() -> Self {
+        DebugCamera {
+            focus: Vec3::ZERO,
+            radius: 5.0,
+            sens: 0.005,
+            look_sens: 0.005,
+            upside_down: false,
+            locked_in: false,
+        }
+    }
+}
+
 #[derive(Actionlike, Clone, Debug, Copy, PartialEq, Eq)]
 pub enum CameraMovement {
     Left,
@@ -38,33 +61,14 @@ impl CameraMovement {
 
 #[derive(Actionlike, Clone, Debug, Copy, PartialEq, Eq)]
 pub enum CameraAction {
-    Arc,
-    ArcTrigger,
+    Rotate,
+    RotateTrigger,
     Pan,
     PanTrigger,
     Zoom,
     ToggleSens,
-}
-
-#[derive(Component)]
-pub struct DebugCamera {
-    pub focus: Vec3,
-    pub radius: f32,
-    pub sens: f32,
-    pub look_sens: f32,
-    pub upside_down: bool,
-}
-
-impl Default for DebugCamera {
-    fn default() -> Self {
-        DebugCamera {
-            focus: Vec3::ZERO,
-            radius: 5.0,
-            sens: 0.005,
-            look_sens: 0.005,
-            upside_down: false,
-        }
-    }
+    LockIn,
+    LockOut,
 }
 
 fn spawn_debug_camera(mut commands: Commands) {
@@ -84,9 +88,11 @@ fn spawn_debug_camera(mut commands: Commands) {
             input_map: InputMap::default()
                 .insert(DualAxis::mouse_motion(), CameraAction::Pan)
                 .insert(DualAxis::mouse_wheel(), CameraAction::Zoom)
-                .insert(MouseButton::Right, CameraAction::ArcTrigger)
+                .insert(MouseButton::Right, CameraAction::RotateTrigger)
                 .insert(MouseButton::Middle, CameraAction::PanTrigger)
                 .insert(KeyCode::LShift, CameraAction::ToggleSens)
+                .insert(KeyCode::Escape, CameraAction::LockOut)
+                .insert_chord([KeyCode::LShift, KeyCode::C], CameraAction::LockIn)
                 .build(),
             action_state: ActionState::default(),
         })
@@ -109,15 +115,14 @@ fn debug_camera_actions(
     let (mut camera, mut transform, actions) = q.single_mut();
     let pan = actions.axis_pair(CameraAction::Pan).unwrap();
     let zoom = actions.axis_pair(CameraAction::Zoom).unwrap();
+    let mut rotate_triggered = false;
 
     actions
         .get_pressed()
         .iter()
         .for_each(|action| match action {
-            CameraAction::ArcTrigger => {
-                transform.rotation =
-                    Quat::from_rotation_y(-pan.x() * camera.look_sens) * transform.rotation;
-                transform.rotation *= Quat::from_rotation_x(-pan.y() * camera.look_sens);
+            CameraAction::RotateTrigger => {
+                rotate_triggered = true;
             }
             CameraAction::PanTrigger => {
                 let dx = transform.rotation * Vec3::X * camera.sens * pan.x();
@@ -127,26 +132,44 @@ fn debug_camera_actions(
             _ => (),
         });
 
-    if zoom.length_squared() == 0.0 {
-        transform.rotation = Quat::from_rotation_y(-zoom.x() * camera.sens) * transform.rotation;
-        transform.rotation *= Quat::from_rotation_x(-zoom.y() * camera.sens);
+    actions
+        .get_just_pressed()
+        .iter()
+        .for_each(|action| match action {
+            CameraAction::LockIn => {
+                camera.locked_in = true;
+            }
+            CameraAction::LockOut => {
+                camera.locked_in = false;
+            }
+            CameraAction::ToggleSens => {
+                camera.sens *= 5.0;
+            }
+            _ => (),
+        });
+
+    actions
+        .get_just_released()
+        .iter()
+        .for_each(|action| if let CameraAction::ToggleSens = action {
+            camera.sens *= 0.2;
+        });
+
+    if camera.locked_in || rotate_triggered {
+        transform.rotation =
+            Quat::from_rotation_y(-pan.x() * camera.look_sens) * transform.rotation;
+        transform.rotation *= Quat::from_rotation_x(-pan.y() * camera.look_sens);
     }
 
-    if actions.just_pressed(CameraAction::ToggleSens) {
-        camera.sens *= 5.0;
-    };
-
-    if actions.just_released(CameraAction::ToggleSens) {
-        camera.sens *= 0.2;
-    }
+    // TODO: Handle zoom
+    // if zoom.length_squared() == 0.0 {
+    //     transform.rotation = Quat::from_rotation_y(-zoom.x() * camera.sens) * transform.rotation;
+    //     transform.rotation *= Quat::from_rotation_x(-zoom.y() * camera.sens);
+    // }
 }
 
 fn debug_camera_movement(
-    mut q: Query<(
-        &mut Transform,
-        &DebugCamera,
-        &ActionState<CameraMovement>,
-    )>,
+    mut q: Query<(&mut Transform, &DebugCamera, &ActionState<CameraMovement>)>,
 ) {
     let (mut transform, camera, movement) = q.single_mut();
 
