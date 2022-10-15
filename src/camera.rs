@@ -162,12 +162,6 @@ fn update_camera_actions(
             Quat::from_rotation_y(-pan.x() * camera.look_sens) * transform.rotation;
         transform.rotation *= Quat::from_rotation_x(-pan.y() * camera.look_sens);
     }
-
-    // TODO: Handle zoom
-    // if zoom.length_squared() == 0.0 {
-    //     transform.rotation = Quat::from_rotation_y(-zoom.x() * camera.sens) * transform.rotation;
-    //     transform.rotation *= Quat::from_rotation_x(-zoom.y() * camera.sens);
-    // }
 }
 
 fn update_camera_movement(

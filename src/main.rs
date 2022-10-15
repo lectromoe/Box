@@ -1,10 +1,7 @@
-mod actions;
-mod camera;
-
-use actions::*;
 use bevy::prelude::*;
-use camera::*;
 use leafwing_input_manager::prelude::*;
+use bevy_rapier3d::prelude::*;
+use boxxed::prelude::*;
 
 fn main() {
     App::new()
@@ -17,7 +14,7 @@ fn main() {
         })
         .add_plugins(DefaultPlugins)
         .add_plugin(InputManagerPlugin::<Action>::default())
-        .add_plugin(DebugCameraPlugin)
+.add_plugin(DebugCameraPlugin)
         .add_startup_system(setup)
         .run()
 }
