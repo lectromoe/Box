@@ -6,10 +6,8 @@ edition = "2021"
 [dependencies]
 bevy = { version = "0.8.1", features = ["dynamic"] }
 bevy_rapier3d = { version = "0.17.0", features = [ "simd-stable", "debug-render" ] }
+iyes_loopless = "0.7.1"
 leafwing-input-manager = "0.5.2"
-
-[patch.crates-io]
-wgpu = { git = "https://github.com/gfx-rs/wgpu" }
 
 [profile.release]
 opt-level = 2
