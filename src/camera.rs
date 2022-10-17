@@ -11,8 +11,8 @@ impl Plugin for DebugCameraPlugin {
             .add_plugin(InputManagerPlugin::<CameraAction>::default())
             .add_plugin(InputManagerPlugin::<CameraMovement>::default())
             .add_system(update_camera_state)
-            .add_system(update_camera_pos.run_in_state(CameraState::FreeFloat).run_in_state(CameraState::Locked))
-            .add_system(update_camera_rot.run_in_state(CameraState::FreeFloat).run_in_state(CameraState::Fps))
+            .add_system(update_camera_pos.run_in_state(CameraState::FreeFloat))
+            .add_system(update_camera_rot.run_in_state(CameraState::FreeFloat))
             .add_system(update_camera_pan.run_in_state(CameraState::FreeFloat));
     }
 }
@@ -120,7 +120,7 @@ fn spawn_camera(mut commands: Commands) {
         });
 }
 
-fn update_camera_state(mut q: Query<(&mut DebugCamera, &ActionState<CameraAction>)>) {
+fn update_camera_state(mut q: Query<(&mut DebugCamera, &ActionState<CameraAction>)>, state: Res<CurrentState<CameraState>>, mut commands: Commands) {
     let (mut camera, actions) = q.single_mut();
 
     if actions.just_pressed(CameraAction::SensToggle) {
@@ -132,15 +132,11 @@ fn update_camera_state(mut q: Query<(&mut DebugCamera, &ActionState<CameraAction
     };
 
     if actions.just_pressed(CameraAction::FreeFloatToggle) {
-        match camera.state {
-            CameraState::FreeFloat => camera.state = CameraState::Freeze,
-            _ => camera.state = CameraState::FreeFloat,
+        match state.0 {
+            CameraState::FreeFloat => commands.insert_resource(NextState(CameraState::Fps)),
+            _                      => commands.insert_resource(NextState(CameraState::FreeFloat)),
         };
     };
-
-    if actions.pressed(CameraAction::FreeFloatTrigger) {
-        camera.state = CameraState::FreeFloat;
-    }
 }
 
 fn update_camera_pan(mut q: Query<(&mut Transform, &DebugCamera, &ActionState<CameraAction>)>) {

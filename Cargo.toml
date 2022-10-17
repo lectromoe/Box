@@ -6,7 +6,7 @@ edition = "2021"
 [dependencies]
 bevy = { version = "0.8.1", features = ["dynamic"] }
 bevy_rapier3d = { version = "0.17.0", features = [ "simd-stable", "debug-render" ] }
-iyes_loopless = "0.7.1"
+iyes_loopless = { version = "0.7.1", features = ["states"] }
 leafwing-input-manager = "0.5.2"
 
 [profile.release]

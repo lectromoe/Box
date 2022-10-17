@@ -24,7 +24,7 @@ fn main() {
 
 fn print_ball_altitude(positions: Query<&Transform, With<RigidBody>>) {
     for transform in positions.iter() {
-        println!("Ball altitude: {}", transform.translation.y);
+        // println!("Ball altitude: {}", transform.translation.y);
     }
 }
 
