@@ -1,4 +1,4 @@
-use bevy::prelude::*;
+use bevy::{prelude::*, render::camera::Projection};
 use iyes_loopless::prelude::*;
 use leafwing_input_manager::prelude::*;
 use std::fmt::Debug;
@@ -34,6 +34,7 @@ impl Plugin for DebugCameraPlugin {
             .add_system_set(
                 ConditionSet::new()
                     .run_in_state(CameraState::FreeFloat)
+                    .with_system(update_camera_zoom)
                     .with_system(update_camera_pos)
                     .with_system(update_camera_rot)
                     .with_system(update_camera_pan)
@@ -56,6 +57,7 @@ pub struct DebugCamera {
     pub radius: f32,
     pub move_sens: f32,
     pub look_sens: f32,
+    pub zoom_sens: f32,
     pub upside_down: bool,
 }
 
@@ -66,6 +68,7 @@ impl Default for DebugCamera {
             radius: 5.0,
             move_sens: 0.005,
             look_sens: 0.005,
+            zoom_sens: 0.1,
             upside_down: false,
         }
     }
@@ -126,7 +129,6 @@ fn spawn_camera(mut commands: Commands) {
                 .insert(MouseButton::Middle, CameraAction::PanTrigger)
                 .insert(KeyCode::LShift, CameraAction::SensTrigger)
                 .insert(KeyCode::C, CameraAction::FreeFloatToggle)
-                // .insert_chord([KeyCode::LShift, KeyCode::C], CameraAction::LockIn)
                 .build(),
             action_state: ActionState::default(),
         })
@@ -177,11 +179,16 @@ fn update_camera_pan(mut q: Query<(&mut Transform, &DebugCamera, &ActionState<Ca
     }
 }
 
-fn update_camera_zoom(mut q: Query<(&mut Transform, &DebugCamera, &ActionState<CameraAction>)>) {
-    let (mut transform, camera, actions) = q.single_mut();
+fn update_camera_zoom(mut q: Query<(&mut Projection, &DebugCamera, &ActionState<CameraAction>)>) {
+    let (mut projection, camera, actions) = q.single_mut();
     let zoom = actions.axis_pair(CameraAction::Zoom).unwrap();
+    if zoom.length_squared() == 0.0 {
+        return;
+    }
 
-    // TODO
+    if let Projection::Perspective(projection) = projection.as_mut() {
+        projection.fov += -zoom.y() * camera.look_sens;
+    }
 }
 
 fn update_camera_rot(
