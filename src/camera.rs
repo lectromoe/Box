@@ -43,7 +43,7 @@ impl Plugin for DebugCameraPlugin {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Resource, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum CameraState {
     FreeFloat, // Tranlation, Rotation
     Locked,    // Transltaion only
@@ -113,7 +113,7 @@ fn spawn_camera(mut commands: Commands) {
     let radius = translation.length();
 
     commands
-        .spawn_bundle(Camera3dBundle {
+        .spawn(Camera3dBundle {
             transform: Transform::from_translation(translation).looking_at(Vec3::ZERO, Vec3::Y),
             ..Default::default()
         })
@@ -121,7 +121,7 @@ fn spawn_camera(mut commands: Commands) {
             radius,
             ..Default::default()
         })
-        .insert_bundle(InputManagerBundle::<CameraAction> {
+        .insert(InputManagerBundle::<CameraAction> {
             input_map: InputMap::default()
                 .insert(DualAxis::mouse_motion(), CameraAction::Pan)
                 .insert(DualAxis::mouse_wheel(), CameraAction::Zoom)
@@ -132,7 +132,7 @@ fn spawn_camera(mut commands: Commands) {
                 .build(),
             action_state: ActionState::default(),
         })
-        .insert_bundle(InputManagerBundle::<CameraMovement> {
+        .insert(InputManagerBundle::<CameraMovement> {
             input_map: InputMap::default()
                 .insert(KeyCode::W, CameraMovement::Forward)
                 .insert(KeyCode::A, CameraMovement::Left)
