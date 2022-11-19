@@ -16,6 +16,7 @@ fn main() {
             ..Default::default()
         }))
         .add_plugin(DebugCameraPlugin)
+        .add_plugin(CharacterControllerPlugin)
         .add_plugin(InputManagerPlugin::<Action>::default())
         .add_plugin(RapierPhysicsPlugin::<NoUserData>::default())
         .add_plugin(RapierDebugRenderPlugin::default())
@@ -38,10 +39,4 @@ fn setup(
         .insert(Collider::cuboid(100.0, 0.1, 100.0));
     commands.spawn(SpotLightBundle::default());
 
-    /* Create the bouncing ball. */
-    commands
-        .spawn(RigidBody::Dynamic)
-        .insert(Collider::ball(0.5))
-        .insert(Restitution::coefficient(1.0))
-        .insert(TransformBundle::from(Transform::from_xyz(0.0, 4.0, 0.0)));
 }

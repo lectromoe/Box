@@ -3,6 +3,29 @@ use iyes_loopless::prelude::*;
 use leafwing_input_manager::prelude::*;
 use std::fmt::Debug;
 
+#[derive(Component)]
+pub struct DebugCamera {
+    pub focus: Vec3,
+    pub radius: f32,
+    pub move_sens: f32,
+    pub look_sens: f32,
+    pub zoom_sens: f32,
+    pub upside_down: bool,
+}
+
+impl Default for DebugCamera {
+    fn default() -> Self {
+        DebugCamera {
+            focus: Vec3::ZERO,
+            radius: 5.0,
+            move_sens: 0.005,
+            look_sens: 0.005,
+            zoom_sens: 0.1,
+            upside_down: false,
+        }
+    }
+}
+
 pub struct DebugCameraPlugin;
 impl Plugin for DebugCameraPlugin {
     fn build(&self, app: &mut App) {
@@ -51,35 +74,12 @@ pub enum CameraState {
     Editor,    // Trigger to move
 }
 
-#[derive(Component)]
-pub struct DebugCamera {
-    pub focus: Vec3,
-    pub radius: f32,
-    pub move_sens: f32,
-    pub look_sens: f32,
-    pub zoom_sens: f32,
-    pub upside_down: bool,
-}
-
-impl Default for DebugCamera {
-    fn default() -> Self {
-        DebugCamera {
-            focus: Vec3::ZERO,
-            radius: 5.0,
-            move_sens: 0.005,
-            look_sens: 0.005,
-            zoom_sens: 0.1,
-            upside_down: false,
-        }
-    }
-}
-
 #[derive(Actionlike, Clone, Debug, Copy, PartialEq, Eq)]
 pub enum CameraMovement {
     Left,
     Right,
+    Back,
     Forward,
-    Backwards,
     Up,
     Down,
 }
@@ -91,7 +91,7 @@ impl CameraMovement {
             CameraMovement::Down => Vec3::NEG_Y,
             CameraMovement::Right => Vec3::X,
             CameraMovement::Left => Vec3::NEG_X,
-            CameraMovement::Backwards => Vec3::Z,
+            CameraMovement::Back => Vec3::Z,
             CameraMovement::Forward => Vec3::NEG_Z,
         }
     }
@@ -136,7 +136,7 @@ fn spawn_camera(mut commands: Commands) {
             input_map: InputMap::default()
                 .insert(KeyCode::W, CameraMovement::Forward)
                 .insert(KeyCode::A, CameraMovement::Left)
-                .insert(KeyCode::S, CameraMovement::Backwards)
+                .insert(KeyCode::S, CameraMovement::Back)
                 .insert(KeyCode::D, CameraMovement::Right)
                 .insert(KeyCode::Space, CameraMovement::Up)
                 .insert(KeyCode::LControl, CameraMovement::Down)
