@@ -1,9 +1,8 @@
-use std::ops::Mul;
-
 use bevy::prelude::*;
 use bevy_rapier3d::prelude::*;
 use iyes_loopless::prelude::*;
 use leafwing_input_manager::prelude::*;
+use std::ops::{Add, Mul};
 
 #[derive(Component)]
 struct CharacterSettings {
@@ -70,7 +69,20 @@ fn spawn_player(mut commands: Commands) {
     };
     commands
         .spawn(RigidBody::KinematicPositionBased)
-        .insert(KinematicCharacterController::default())
+        .insert(KinematicCharacterController {
+            offset: CharacterLength::Absolute(0.01),
+            slide: true,
+            autostep: Some(CharacterAutostep {
+                max_height: CharacterLength::Absolute(0.5),
+                min_width: CharacterLength::Absolute(0.2),
+                include_dynamic_bodies: false,
+            }),
+            max_slope_climb_angle: 45.0_f32.to_radians(),
+            min_slope_slide_angle: 30.0_f32.to_radians(),
+            apply_impulse_to_dynamic_bodies: true,
+            snap_to_ground: Some(CharacterLength::Absolute(0.5)),
+            ..Default::default()
+        })
         .insert(Collider::capsule_y(settings.height / 2., 1.0))
         .insert(Restitution::coefficient(1.0))
         .insert(TransformBundle::from(Transform::from_xyz(0.0, 4.0, 0.0)))
@@ -105,12 +117,15 @@ fn update_player_pos(
         _ => settings.walk_speed,
     };
 
+    let gravity = Vec3::new(0., -1., 0.);
+
     let direction = movement
         .get_pressed()
         .iter()
         .map(|movement| movement.into_vec())
         .sum::<Vec3>()
         .mul(speed)
+        .add(gravity)
         .mul(time.delta_seconds());
 
     controller.translation = Some(direction);
