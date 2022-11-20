@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use bevy_rapier3d::prelude::*;
+use bevy_rapier3d::{prelude::*};
 use iyes_loopless::prelude::*;
 use leafwing_input_manager::prelude::*;
 use std::ops::{Add, Mul};
@@ -43,14 +43,14 @@ pub enum CharacterState {
 
 impl CharacterState {
     fn transition(
-        current: CharacterState,
+        from: CharacterState,
         controller: &KinematicCharacterControllerOutput,
         actions: &ActionState<CharacterActions>,
     ) -> Option<CharacterState> {
         use CharacterState::*;
 
         let mut next_state = None;
-        match current {
+        match from {
             Run => {
                 if actions.just_released(CharacterActions::Sprint) {
                     next_state = Some(Walk)
@@ -100,7 +100,7 @@ impl CharacterState {
             }
         }
 
-        if current != Jump && !controller.grounded {
+        if from != Jump && !controller.grounded {
             next_state = Some(Fall)
         }
 
@@ -205,14 +205,14 @@ fn update_player_state(
 fn update_player_pos(
     mut q: Query<(
         &mut KinematicCharacterController,
+        Option<&KinematicCharacterControllerOutput>,
         &CharacterSettings,
         &ActionState<CharacterMovement>,
-        &ActionState<CharacterActions>,
     )>,
     state: Res<CurrentState<CharacterState>>,
     time: Res<Time>,
 ) {
-    let (mut controller, settings, movement, actions) = q.single_mut();
+    let (mut controller, physics, settings, movement) = q.single_mut();
 
     let speed = match state.0 {
         CharacterState::Idle => settings.speed,
@@ -222,19 +222,20 @@ fn update_player_pos(
         _ => settings.speed,
     };
 
-    let mut direction = movement
+    let mut gravity = 0.0;
+    if let Some(physics) = physics {
+        gravity = if physics.grounded { 0.1 } else { 0.0 };
+    };
+
+    let direction = movement
         .get_pressed()
         .iter()
         .map(|movement| movement.into_vec())
         .sum::<Vec3>()
-        .mul(speed)
+        .mul(speed * 10.)
+        .add(Vec3::new(0.0, -gravity, 0.0))
+        .clamp_length(0., speed)
         .mul(time.delta_seconds());
-
-    let gravity = Vec3::new(0., -0.1, 0.);
-    if state.0 == CharacterState::Fall {
-        direction += gravity;
-    }
-    println!("{:?}", state.0);
 
     controller.translation = Some(direction);
 }
