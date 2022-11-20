@@ -1,20 +1,30 @@
-use bevy::prelude::*;
+use bevy::{
+    log::{Level, LogPlugin},
+    prelude::*,
+};
 use bevy_rapier3d::prelude::*;
 use boxxed::prelude::*;
 use leafwing_input_manager::prelude::*;
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            window: WindowDescriptor {
-                width: 1280.,
-                height: 720.,
-                scale_factor_override: Some(1.),
-                title: "boxxed".to_string(),
-                ..Default::default()
-            },
-            ..Default::default()
-        }))
+        .add_plugins(
+            DefaultPlugins
+                .set(WindowPlugin {
+                    window: WindowDescriptor {
+                        width: 1280.,
+                        height: 720.,
+                        scale_factor_override: Some(1.),
+                        title: "boxxed".to_string(),
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                })
+                .set(LogPlugin {
+                    level: Level::INFO,
+                    filter: "wgpu=error,bevy_render=info,bevy_ecs=error".to_string(),
+                }),
+        )
         .add_plugin(DebugCameraPlugin)
         .add_plugin(CharacterControllerPlugin)
         .add_plugin(InputManagerPlugin::<Action>::default())
@@ -30,13 +40,13 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     commands
-        .spawn(PbrBundle {
-            mesh: meshes.add(Mesh::from(shape::Plane { size: 8.0 })),
-            material: materials.add(Color::rgb(1., 0.9, 0.9).into()),
-            transform: Transform::from_translation(Vec3::new(4., 0., 4.)),
-            ..Default::default()
-        })
-        .insert(Collider::cuboid(100.0, 0.1, 100.0));
-    commands.spawn(SpotLightBundle::default());
+        // .spawn(PbrBundle {
+        //     mesh: meshes.add(Mesh::from(shape::Plane { size: 8.0 })),
+        //     material: materials.add(Color::rgb(1., 0.9, 0.9).into()),
+        //     transform: Transform::from_translation(Vec3::new(4., 0., 4.)),
+        //     ..Default::default()
+        // })
+        .spawn(Collider::cuboid(100.0, 1.0, 100.0));
 
+    commands.spawn(SpotLightBundle::default());
 }
