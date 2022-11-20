@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use bevy_rapier3d::{prelude::*};
+use bevy_rapier3d::prelude::*;
 use iyes_loopless::prelude::*;
 use leafwing_input_manager::prelude::*;
 use std::ops::{Add, Mul};
@@ -21,12 +21,7 @@ impl Plugin for CharacterControllerPlugin {
             .add_plugin(InputManagerPlugin::<CharacterActions>::default())
             .add_startup_system(spawn_player)
             .add_system(update_player_state)
-            .add_system_set(
-                ConditionSet::new()
-                    // .run_in_state(CharacterState::Walk)
-                    .with_system(update_player_pos)
-                    .into(),
-            );
+            .add_system_set(ConditionSet::new().with_system(update_player_pos).into());
     }
 }
 
@@ -43,30 +38,39 @@ pub enum CharacterState {
 
 impl CharacterState {
     fn transition(
-        from: CharacterState,
+        state: CharacterState,
         controller: &KinematicCharacterControllerOutput,
         actions: &ActionState<CharacterActions>,
     ) -> Option<CharacterState> {
         use CharacterState::*;
 
         let mut next_state = None;
-        match from {
+
+        match state {
             Run => {
                 if actions.just_released(CharacterActions::Sprint) {
                     next_state = Some(Walk)
                 }
 
-                if controller.effective_translation == Vec3::ZERO {
-                    next_state = Some(Idle)
+                if actions.just_pressed(CharacterActions::Crouch) {
+                    next_state = Some(Slide)
+                }
+
+                if actions.just_pressed(CharacterActions::Jump) {
+                    next_state = Some(Jump)
                 }
             }
             Walk => {
-                if actions.just_pressed(CharacterActions::Sprint) {
+                if actions.pressed(CharacterActions::Sprint) {
                     next_state = Some(Run)
                 }
 
-                if controller.effective_translation == Vec3::ZERO {
-                    next_state = Some(Idle)
+                if actions.just_pressed(CharacterActions::Crouch) {
+                    next_state = Some(Crouch)
+                }
+
+                if actions.just_pressed(CharacterActions::Jump) {
+                    next_state = Some(Jump)
                 }
             }
             Slide => {
@@ -100,7 +104,11 @@ impl CharacterState {
             }
         }
 
-        if from != Jump && !controller.grounded {
+        if controller.effective_translation == Vec3::ZERO && state != Idle {
+            next_state = Some(Idle)
+        }
+
+        if state != Jump && !controller.grounded && state != Fall {
             next_state = Some(Fall)
         }
 
@@ -168,8 +176,6 @@ fn spawn_player(mut commands: Commands) {
                 .insert(KeyCode::A, CharacterMovement::Left)
                 .insert(KeyCode::S, CharacterMovement::Back)
                 .insert(KeyCode::D, CharacterMovement::Right)
-                // .insert(KeyCode::Space, CharacterMovement::Jump)
-                // .insert(KeyCode::LControl, CharacterMovement::Crouch)
                 .build(),
             action_state: ActionState::default(),
         })
@@ -184,20 +190,19 @@ fn spawn_player(mut commands: Commands) {
 }
 
 fn update_player_state(
-    mut q: Query<(
-        &KinematicCharacterControllerOutput,
-        &CharacterSettings,
-        &ActionState<CharacterMovement>,
+    q: Query<(
+        Option<&KinematicCharacterControllerOutput>,
         &ActionState<CharacterActions>,
     )>,
     mut commands: Commands,
     state: Res<CurrentState<CharacterState>>,
 ) {
-    for (controller, settings, movement, actions) in q.iter() {
+    let (controller, actions) = q.single();
+    if let Some(controller) = controller {
         let new_state = CharacterState::transition(state.0, controller, actions);
 
-        if let Some(state) = new_state {
-            commands.insert_resource(NextState(state));
+        if let Some(new_state) = new_state {
+            commands.insert_resource(NextState(new_state));
         }
     }
 }
@@ -219,12 +224,14 @@ fn update_player_pos(
         CharacterState::Walk => settings.speed,
         CharacterState::Run => settings.run_speed,
         CharacterState::Crouch => settings.crouch_speed,
+        CharacterState::Slide => settings.slide_speed,
+        CharacterState::Jump => settings.slide_speed,
         _ => settings.speed,
     };
 
     let mut gravity = 0.0;
     if let Some(physics) = physics {
-        gravity = if physics.grounded { 0.1 } else { 0.0 };
+        gravity = if physics.grounded { 0.0 } else { 10.0 };
     };
 
     let direction = movement
@@ -233,8 +240,8 @@ fn update_player_pos(
         .map(|movement| movement.into_vec())
         .sum::<Vec3>()
         .mul(speed * 10.)
-        .add(Vec3::new(0.0, -gravity, 0.0))
         .clamp_length(0., speed)
+        .add(Vec3::new(0.0, -gravity, 0.0))
         .mul(time.delta_seconds());
 
     controller.translation = Some(direction);
