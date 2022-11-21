@@ -1,17 +1,9 @@
+use crate::prelude::*;
 use bevy::prelude::*;
 use bevy_rapier3d::prelude::*;
 use iyes_loopless::prelude::*;
 use leafwing_input_manager::prelude::*;
 use std::ops::{Add, Mul};
-
-#[derive(Component)]
-struct CharacterSettings {
-    speed: f32,
-    run_speed: f32,
-    crouch_speed: f32,
-    slide_speed: f32,
-    height: f32,
-}
 
 pub struct CharacterControllerPlugin;
 impl Plugin for CharacterControllerPlugin {
@@ -25,95 +17,13 @@ impl Plugin for CharacterControllerPlugin {
     }
 }
 
-#[derive(Resource, Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum CharacterState {
-    Run,
-    Idle,
-    Walk,
-    Slide,
-    Crouch,
-    Jump,
-    Fall,
-}
-
-impl CharacterState {
-    fn transition(
-        state: CharacterState,
-        controller: &KinematicCharacterControllerOutput,
-        actions: &ActionState<CharacterActions>,
-    ) -> Option<CharacterState> {
-        use CharacterState::*;
-
-        let mut next_state = None;
-
-        match state {
-            Run => {
-                if actions.just_released(CharacterActions::Sprint) {
-                    next_state = Some(Walk)
-                }
-
-                if actions.just_pressed(CharacterActions::Crouch) {
-                    next_state = Some(Slide)
-                }
-
-                if actions.just_pressed(CharacterActions::Jump) {
-                    next_state = Some(Jump)
-                }
-            }
-            Walk => {
-                if actions.pressed(CharacterActions::Sprint) {
-                    next_state = Some(Run)
-                }
-
-                if actions.just_pressed(CharacterActions::Crouch) {
-                    next_state = Some(Crouch)
-                }
-
-                if actions.just_pressed(CharacterActions::Jump) {
-                    next_state = Some(Jump)
-                }
-            }
-            Slide => {
-                if actions.just_pressed(CharacterActions::Jump) {
-                    next_state = Some(Jump)
-                }
-
-                if actions.just_released(CharacterActions::Crouch) {
-                    next_state = Some(Run)
-                }
-            }
-            Crouch => {
-                if actions.just_released(CharacterActions::Crouch) {
-                    next_state = Some(Idle)
-                }
-            }
-            Jump => {
-                if controller.grounded {
-                    next_state = Some(Idle)
-                }
-            }
-            Fall => {
-                if controller.grounded {
-                    next_state = Some(Idle)
-                }
-            }
-            Idle => {
-                if controller.effective_translation != Vec3::ZERO {
-                    next_state = Some(Walk)
-                }
-            }
-        }
-
-        if controller.effective_translation == Vec3::ZERO && state != Idle {
-            next_state = Some(Idle)
-        }
-
-        if state != Jump && !controller.grounded && state != Fall {
-            next_state = Some(Fall)
-        }
-
-        next_state
-    }
+#[derive(Component)]
+struct CharacterSettings {
+    speed: f32,
+    run_speed: f32,
+    crouch_speed: f32,
+    slide_speed: f32,
+    height: f32,
 }
 
 #[derive(Actionlike, Clone, Debug, Copy, PartialEq, Eq)]
@@ -198,8 +108,8 @@ fn update_player_state(
     state: Res<CurrentState<CharacterState>>,
 ) {
     let (controller, actions) = q.single();
-    if let Some(controller) = controller {
-        let new_state = CharacterState::transition(state.0, controller, actions);
+    if let Some(physics) = controller {
+        let new_state = CharacterState::transition(state.0, physics, actions);
 
         if let Some(new_state) = new_state {
             commands.insert_resource(NextState(new_state));
@@ -225,7 +135,7 @@ fn update_player_pos(
         CharacterState::Run => settings.run_speed,
         CharacterState::Crouch => settings.crouch_speed,
         CharacterState::Slide => settings.slide_speed,
-        CharacterState::Jump => settings.slide_speed,
+        CharacterState::Jump => settings.run_speed,
         _ => settings.speed,
     };
 

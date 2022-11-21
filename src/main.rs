@@ -27,26 +27,17 @@ fn main() {
         )
         .add_plugin(DebugCameraPlugin)
         .add_plugin(CharacterControllerPlugin)
-        .add_plugin(InputManagerPlugin::<Action>::default())
         .add_plugin(RapierPhysicsPlugin::<NoUserData>::default())
         .add_plugin(RapierDebugRenderPlugin::default())
-        .add_startup_system(setup)
+        .add_startup_system(build_map)
         .run()
 }
 
-fn setup(
+fn build_map(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    commands
-        // .spawn(PbrBundle {
-        //     mesh: meshes.add(Mesh::from(shape::Plane { size: 8.0 })),
-        //     material: materials.add(Color::rgb(1., 0.9, 0.9).into()),
-        //     transform: Transform::from_translation(Vec3::new(4., 0., 4.)),
-        //     ..Default::default()
-        // })
-        .spawn(Collider::cuboid(100.0, 1.0, 100.0));
-
+    commands.spawn(Collider::cuboid(100.0, 1.0, 100.0));
     commands.spawn(SpotLightBundle::default());
 }

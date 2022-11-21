@@ -1,5 +1,5 @@
-/// Player action structures
-pub mod actions;
+/// Player state structures
+pub mod character_state;
 
 /// Player & editor cameras
 pub mod camera;
@@ -15,9 +15,9 @@ pub mod character;
 
 /// Boxxed prelude
 pub mod prelude {
-    pub use crate::actions::*;
     pub use crate::camera::*;
     pub use crate::character::*;
+    pub use crate::character_state::*;
     pub use crate::console::*;
     pub use crate::debugger::*;
 }
