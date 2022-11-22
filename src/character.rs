@@ -108,6 +108,7 @@ fn update_player_state(
     state: Res<CurrentState<CharacterState>>,
 ) {
     let (controller, actions) = q.single();
+
     if let Some(physics) = controller {
         let new_state = CharacterState::transition(state.0, physics, actions);
 
@@ -117,6 +118,7 @@ fn update_player_state(
     }
 }
 
+#[rustfmt::skip]
 fn update_player_pos(
     mut q: Query<(
         &mut KinematicCharacterController,
@@ -127,15 +129,18 @@ fn update_player_pos(
     state: Res<CurrentState<CharacterState>>,
     time: Res<Time>,
 ) {
-    let (mut controller, physics, settings, movement) = q.single_mut();
+    let (mut controller, 
+             physics, 
+             settings, 
+             movement) = q.single_mut();
 
     let speed = match state.0 {
-        CharacterState::Idle => settings.speed,
-        CharacterState::Walk => settings.speed,
-        CharacterState::Run => settings.run_speed,
-        CharacterState::Crouch => settings.crouch_speed,
-        CharacterState::Slide => settings.slide_speed,
-        CharacterState::Jump => settings.run_speed,
+        CharacterState::Idle    => settings.speed,
+        CharacterState::Walk    => settings.speed,
+        CharacterState::Run     => settings.run_speed,
+        CharacterState::Crouch  => settings.crouch_speed,
+        CharacterState::Slide   => settings.slide_speed,
+        CharacterState::Jump    => settings.run_speed,
         _ => settings.speed,
     };
 

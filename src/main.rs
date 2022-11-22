@@ -4,7 +4,6 @@ use bevy::{
 };
 use bevy_rapier3d::prelude::*;
 use boxxed::prelude::*;
-use leafwing_input_manager::prelude::*;
 
 fn main() {
     App::new()
@@ -33,11 +32,7 @@ fn main() {
         .run()
 }
 
-fn build_map(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-) {
+fn build_map(mut commands: Commands) {
     commands.spawn(Collider::cuboid(100.0, 1.0, 100.0));
     commands.spawn(SpotLightBundle::default());
 }
