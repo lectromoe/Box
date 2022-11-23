@@ -43,13 +43,14 @@ impl CharacterState {
                 if actions.just_released(CharacterActions::Crouch)  { new_state = Some(Idle) }
             }
             Jump => {
-                if physics.grounded                                         { new_state = Some(Idle) }
+                if physics.grounded                                 { new_state = Some(Idle) }
             }
             Fall => {
-                if physics.grounded                                         { new_state = Some(Idle) }
+                if physics.grounded                                 { new_state = Some(Idle) }
             }
             Idle => {
-                if physics.effective_translation != Vec3::ZERO              { new_state = Some(Walk) }
+                if actions.just_pressed(CharacterActions::Jump)     { new_state = Some(Jump) }
+                if physics.effective_translation != Vec3::ZERO      { new_state = Some(Walk) }
             }
         }
         if physics.effective_translation == Vec3::ZERO  && state != Idle    { new_state = Some(Idle) }

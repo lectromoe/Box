@@ -13,6 +13,7 @@ impl Plugin for CharacterControllerPlugin {
             .add_plugin(InputManagerPlugin::<CharacterActions>::default())
             .add_startup_system(spawn_player)
             .add_system(update_player_state)
+            .add_system(update_gravity_force)
             .add_system_set(ConditionSet::new().with_system(update_player_pos).into());
     }
 }
@@ -30,7 +31,7 @@ struct CharacterSpeedSettings {
 }
 
 impl CharacterSpeedSettings {
-    pub fn from_state(&self, state: CharacterState) -> f32 {
+    pub fn get_for_state(&self, state: CharacterState) -> f32 {
         match state {
             CharacterState::Run => self.run,
             CharacterState::Walk => self.base,
@@ -38,7 +39,7 @@ impl CharacterSpeedSettings {
             CharacterState::Crouch => self.crouch,
             CharacterState::Jump => self.base,
             CharacterState::Fall => self.base,
-            CharacterState::Idle => 0.0,
+            CharacterState::Idle => 1.0,
         }
     }
 }
@@ -87,7 +88,7 @@ fn spawn_player(mut commands: Commands) {
         },
         forces: Default::default(),
     };
-    let player = commands
+    commands
         .spawn(RigidBody::KinematicPositionBased)
         .insert(KinematicCharacterController {
             offset: CharacterLength::Absolute(0.01),
@@ -123,8 +124,8 @@ fn spawn_player(mut commands: Commands) {
                 .insert(KeyCode::LShift, CharacterActions::Sprint)
                 .build(),
             action_state: ActionState::default(),
-        })
-        .id();
+        });
+        
 }
 
 fn update_player_state(
@@ -146,11 +147,32 @@ fn update_player_state(
     }
 }
 
+fn update_gravity_force(
+    mut q: Query<(
+        &mut KinematicCharacterController,
+        Option<&KinematicCharacterControllerOutput>,
+        &mut CharacterMovementController,
+    )>,
+    time: Res<Time>,
+) {
+    let (mut controller, physics, mut movement) = q.single_mut();
+
+    let Some(physics) = physics else { 
+        controller.translation = Some(Vec3::ZERO);
+        return;
+    };
+
+    if physics.grounded { 
+        movement.forces.gravity = Vec3::ZERO;
+    } else { 
+        movement.forces.gravity += Vec3::new(0.0, -9.81 * 5.0, 0.0) * time.delta_seconds();
+    };
+}
+
 #[rustfmt::skip]
 fn update_player_pos(
     mut q: Query<(
         &mut KinematicCharacterController,
-        Option<&KinematicCharacterControllerOutput>,
         &CharacterMovementController,
         &ActionState<CharacterMovement>,
         &Transform
@@ -158,14 +180,11 @@ fn update_player_pos(
     state: Res<CurrentState<CharacterState>>,
     time: Res<Time>,
 ) {
-    let (mut controller, physics, settings, movement, transform) = q.single_mut();
+    let (mut controller,  settings, movement, transform) = q.single_mut();
     let state = state.0;
-    let Some(physics) = physics else { 
-        controller.translation = Some(Vec3::ZERO);
-        return;
-    };
 
-    let speed = settings.speed.from_state(state);
+    let speed = settings.speed.get_for_state(state);
+    let gravity = settings.forces.gravity;
     let movement = movement
         .get_pressed()
         .iter()
@@ -176,11 +195,9 @@ fn update_player_pos(
 
     let actions = match state {
         CharacterState::Slide => Vec3::new(10., 0., 0.),
-        CharacterState::Jump  => Vec3::new(0., 500., 0.),
+        CharacterState::Jump  => Vec3::new(0., 100., 0.),
         _                     => Vec3::ZERO,
     };
-
-    let gravity = if physics.grounded { Vec3::ZERO } else { Vec3::new(0.0, -9.81, 0.0) };
 
     let direction = movement 
         .add(actions)
