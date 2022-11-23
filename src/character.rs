@@ -125,39 +125,45 @@ fn update_player_pos(
         Option<&KinematicCharacterControllerOutput>,
         &CharacterSettings,
         &ActionState<CharacterMovement>,
+        &Transform
     )>,
     state: Res<CurrentState<CharacterState>>,
     time: Res<Time>,
 ) {
-    let (mut controller, 
-             physics, 
-             settings, 
-             movement) = q.single_mut();
+    let (mut controller, physics, settings, movement, transform) = q.single_mut();
+    let Some(physics) = physics else { return };
+    let state = state.0;
 
-    let speed = match state.0 {
+    let speed = match state {
         CharacterState::Idle    => settings.speed,
         CharacterState::Walk    => settings.speed,
         CharacterState::Run     => settings.run_speed,
         CharacterState::Crouch  => settings.crouch_speed,
         CharacterState::Slide   => settings.slide_speed,
         CharacterState::Jump    => settings.run_speed,
-        _ => settings.speed,
+        _                       => settings.speed,
     };
 
-    let mut gravity = 0.0;
-    if let Some(physics) = physics {
-        gravity = if physics.grounded { 0.0 } else { 10.0 };
-    };
-
-    let direction = movement
+    let movement = movement
         .get_pressed()
         .iter()
         .map(|movement| movement.into_vec())
         .sum::<Vec3>()
-        .mul(speed * 10.)
-        .clamp_length(0., speed)
-        .add(Vec3::new(0.0, -gravity, 0.0))
+        .mul(speed)
+        .clamp_length(0., speed);
+
+    let actions = match state {
+        CharacterState::Slide => Vec3::new(10., 0., 0.),
+        CharacterState::Jump  => Vec3::new(0., 500., 0.),
+        _                     => Vec3::ZERO,
+    };
+
+    let gravity = if physics.grounded { Vec3::ZERO } else { Vec3::new(0.0, -9.81, 0.0) };
+
+    let direction = movement 
+        .add(actions)
+        .add(gravity)
         .mul(time.delta_seconds());
 
-    controller.translation = Some(direction);
+    controller.translation = Some(transform.rotation * direction);
 }
