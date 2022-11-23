@@ -124,47 +124,39 @@ fn spawn_player(mut commands: Commands) {
                 .insert(KeyCode::LShift, CharacterActions::Sprint)
                 .build(),
             action_state: ActionState::default(),
-        });
-        
+        })
+        .insert(KinematicCharacterControllerOutput::default());
 }
 
 fn update_player_state(
     q: Query<(
-        Option<&KinematicCharacterControllerOutput>,
+        &KinematicCharacterControllerOutput,
         &ActionState<CharacterActions>,
     )>,
     mut commands: Commands,
     state: Res<CurrentState<CharacterState>>,
 ) {
-    let (controller, actions) = q.single();
+    let (physics, actions) = q.single();
 
-    if let Some(physics) = controller {
-        let new_state = CharacterState::transition(state.0, physics, actions);
+    let new_state = CharacterState::transition(state.0, physics, actions);
 
-        if let Some(new_state) = new_state {
-            commands.insert_resource(NextState(new_state));
-        }
+    if let Some(new_state) = new_state {
+        commands.insert_resource(NextState(new_state));
     }
 }
 
 fn update_gravity_force(
     mut q: Query<(
-        &mut KinematicCharacterController,
-        Option<&KinematicCharacterControllerOutput>,
         &mut CharacterMovementController,
+        &KinematicCharacterControllerOutput,
     )>,
     time: Res<Time>,
 ) {
-    let (mut controller, physics, mut movement) = q.single_mut();
+    let (mut movement, physics) = q.single_mut();
 
-    let Some(physics) = physics else { 
-        controller.translation = Some(Vec3::ZERO);
-        return;
-    };
-
-    if physics.grounded { 
+    if physics.grounded {
         movement.forces.gravity = Vec3::ZERO;
-    } else { 
+    } else {
         movement.forces.gravity += Vec3::new(0.0, -9.81 * 5.0, 0.0) * time.delta_seconds();
     };
 }
@@ -200,7 +192,7 @@ fn update_player_pos(
     };
 
     let direction = movement 
-        .add(actions)
+        .add(actions) // FIXME: not local?
         .add(gravity)
         .mul(time.delta_seconds());
 
