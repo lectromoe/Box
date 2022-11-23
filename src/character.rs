@@ -17,12 +17,36 @@ impl Plugin for CharacterControllerPlugin {
     }
 }
 
+#[derive(Default, Debug)]
+struct CharacterForces {
+    gravity: Vec3,
+}
+
+struct CharacterSpeedSettings {
+    base: f32,
+    run: f32,
+    crouch: f32,
+    slide: f32,
+}
+
+impl CharacterSpeedSettings {
+    pub fn from_state(&self, state: CharacterState) -> f32 {
+        match state {
+            CharacterState::Run => self.run,
+            CharacterState::Walk => self.base,
+            CharacterState::Slide => self.slide,
+            CharacterState::Crouch => self.crouch,
+            CharacterState::Jump => self.base,
+            CharacterState::Fall => self.base,
+            CharacterState::Idle => 0.0,
+        }
+    }
+}
+
 #[derive(Component)]
-struct CharacterSettings {
-    speed: f32,
-    run_speed: f32,
-    crouch_speed: f32,
-    slide_speed: f32,
+struct CharacterMovementController {
+    speed: CharacterSpeedSettings,
+    forces: CharacterForces,
     height: f32,
 }
 
@@ -53,14 +77,17 @@ pub enum CharacterActions {
 }
 
 fn spawn_player(mut commands: Commands) {
-    let settings = CharacterSettings {
+    let settings = CharacterMovementController {
         height: 2.0,
-        speed: 10.0,
-        run_speed: 20.0,
-        slide_speed: 25.0,
-        crouch_speed: 5.0,
+        speed: CharacterSpeedSettings {
+            base: 10.0,
+            run: 20.0,
+            crouch: 5.0,
+            slide: 25.0,
+        },
+        forces: Default::default(),
     };
-    commands
+    let player = commands
         .spawn(RigidBody::KinematicPositionBased)
         .insert(KinematicCharacterController {
             offset: CharacterLength::Absolute(0.01),
@@ -96,7 +123,8 @@ fn spawn_player(mut commands: Commands) {
                 .insert(KeyCode::LShift, CharacterActions::Sprint)
                 .build(),
             action_state: ActionState::default(),
-        });
+        })
+        .id();
 }
 
 fn update_player_state(
@@ -123,7 +151,7 @@ fn update_player_pos(
     mut q: Query<(
         &mut KinematicCharacterController,
         Option<&KinematicCharacterControllerOutput>,
-        &CharacterSettings,
+        &CharacterMovementController,
         &ActionState<CharacterMovement>,
         &Transform
     )>,
@@ -131,19 +159,13 @@ fn update_player_pos(
     time: Res<Time>,
 ) {
     let (mut controller, physics, settings, movement, transform) = q.single_mut();
-    let Some(physics) = physics else { return };
     let state = state.0;
-
-    let speed = match state {
-        CharacterState::Idle    => settings.speed,
-        CharacterState::Walk    => settings.speed,
-        CharacterState::Run     => settings.run_speed,
-        CharacterState::Crouch  => settings.crouch_speed,
-        CharacterState::Slide   => settings.slide_speed,
-        CharacterState::Jump    => settings.run_speed,
-        _                       => settings.speed,
+    let Some(physics) = physics else { 
+        controller.translation = Some(Vec3::ZERO);
+        return;
     };
 
+    let speed = settings.speed.from_state(state);
     let movement = movement
         .get_pressed()
         .iter()
