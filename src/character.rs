@@ -14,6 +14,8 @@ impl Plugin for CharacterControllerPlugin {
             .add_startup_system(spawn_player)
             .add_system(update_player_state)
             .add_system(update_gravity_force)
+            .add_system(update_movement_force)
+            .add_system(update_action_force)
             .add_system_set(ConditionSet::new().with_system(update_player_pos).into());
     }
 }
@@ -21,6 +23,8 @@ impl Plugin for CharacterControllerPlugin {
 #[derive(Default, Debug)]
 struct CharacterForces {
     gravity: Vec3,
+    movement: Vec3,
+    actions: Vec3,
 }
 
 struct CharacterSpeedSettings {
@@ -161,38 +165,54 @@ fn update_gravity_force(
     };
 }
 
+fn update_movement_force(
+    mut q: Query<(
+        &mut CharacterMovementController,
+        &ActionState<CharacterMovement>,
+    )>,
+) {
+    let (mut character, movement) = q.single_mut();
+
+    character.forces.movement = movement
+        .get_pressed()
+        .iter()
+        .map(|movement| movement.into_vec())
+        .sum::<Vec3>();
+}
+
+fn update_action_force(
+    mut q: Query<&mut CharacterMovementController>,
+    state: Res<CurrentState<CharacterState>>,
+) {
+    let mut character = q.single_mut();
+
+    character.forces.actions = match state.0 {
+        CharacterState::Slide => character.forces.movement,
+        CharacterState::Jump => Vec3::new(0., 100., 0.),
+        _ => Vec3::ZERO,
+    };
+}
+
 #[rustfmt::skip]
 fn update_player_pos(
     mut q: Query<(
         &mut KinematicCharacterController,
         &CharacterMovementController,
-        &ActionState<CharacterMovement>,
         &Transform
     )>,
     state: Res<CurrentState<CharacterState>>,
     time: Res<Time>,
 ) {
-    let (mut controller,  settings, movement, transform) = q.single_mut();
+    let (mut controller,  character, transform) = q.single_mut();
     let state = state.0;
 
-    let speed = settings.speed.get_for_state(state);
-    let gravity = settings.forces.gravity;
-    let movement = movement
-        .get_pressed()
-        .iter()
-        .map(|movement| movement.into_vec())
-        .sum::<Vec3>()
-        .mul(speed)
-        .clamp_length(0., speed);
+    let speed = character.speed.get_for_state(state);
+    let gravity = character.forces.gravity;
+    let movement = character.forces.movement.mul(speed).clamp_length(0., speed);
+    let actions = character.forces.actions;
 
-    let actions = match state {
-        CharacterState::Slide => Vec3::new(10., 0., 0.),
-        CharacterState::Jump  => Vec3::new(0., 100., 0.),
-        _                     => Vec3::ZERO,
-    };
-
-    let direction = movement 
-        .add(actions) // FIXME: not local?
+    let direction = movement
+        .add(actions) 
         .add(gravity)
         .mul(time.delta_seconds());
 
