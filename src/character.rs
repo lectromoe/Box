@@ -13,9 +13,11 @@ impl Plugin for CharacterControllerPlugin {
             .add_plugin(InputManagerPlugin::<CharacterActions>::default())
             .add_startup_system(spawn_player)
             .add_system(update_player_state)
+            .add_system(update_player_speed)
             .add_system(update_gravity_force)
-            .add_system(update_movement_force)
             .add_system(update_action_force)
+            .add_system(update_movement_force)
+            .add_system(update_player_speed)
             .add_system_set(ConditionSet::new().with_system(update_player_pos).into());
     }
 }
@@ -28,23 +30,16 @@ struct CharacterForces {
 }
 
 struct CharacterSpeedSettings {
-    base: f32,
-    run: f32,
-    crouch: f32,
-    slide: f32,
+    pub base: f32,
+    pub run: f32,
+    pub crouch: f32,
+    pub slide: f32,
+    current: f32,
 }
 
 impl CharacterSpeedSettings {
-    pub fn get_for_state(&self, state: CharacterState) -> f32 {
-        match state {
-            CharacterState::Run => self.run,
-            CharacterState::Walk => self.base,
-            CharacterState::Slide => self.slide,
-            CharacterState::Crouch => self.crouch,
-            CharacterState::Jump => self.base,
-            CharacterState::Fall => self.base,
-            CharacterState::Idle => 1.0,
-        }
+    pub fn current(&self) -> f32 {
+        self.current
     }
 }
 
@@ -89,6 +84,7 @@ fn spawn_player(mut commands: Commands) {
             run: 20.0,
             crouch: 5.0,
             slide: 25.0,
+            current: 1.0,
         },
         forces: Default::default(),
     };
@@ -172,12 +168,32 @@ fn update_movement_force(
     )>,
 ) {
     let (mut character, movement) = q.single_mut();
+    let speed = character.speed.current();
 
     character.forces.movement = movement
         .get_pressed()
         .iter()
         .map(|movement| movement.into_vec())
-        .sum::<Vec3>();
+        .sum::<Vec3>()
+        .mul(speed)
+        .clamp_length(0., speed);
+}
+
+fn update_player_speed(
+    mut q: Query<&mut CharacterMovementController>,
+    state: Res<CurrentState<CharacterState>>,
+) {
+    let mut character = q.single_mut();
+
+    character.speed.current = match state.0 {
+        CharacterState::Run => character.speed.run,
+        CharacterState::Walk => character.speed.base,
+        CharacterState::Slide => character.speed.slide,
+        CharacterState::Crouch => character.speed.crouch,
+        CharacterState::Jump => character.speed.base,
+        CharacterState::Fall => character.speed.base,
+        CharacterState::Idle => 1.0,
+    }
 }
 
 fn update_action_force(
@@ -185,12 +201,17 @@ fn update_action_force(
     state: Res<CurrentState<CharacterState>>,
 ) {
     let mut character = q.single_mut();
+    let speed = character.speed.current();
 
-    character.forces.actions = match state.0 {
+    let action_force = match state.0 {
         CharacterState::Slide => character.forces.movement,
         CharacterState::Jump => Vec3::new(0., 100., 0.),
         _ => Vec3::ZERO,
     };
+
+    action_force.mul(speed).clamp_length(0., speed);
+
+    character.forces.actions = action_force;
 }
 
 #[rustfmt::skip]
@@ -200,15 +221,12 @@ fn update_player_pos(
         &CharacterMovementController,
         &Transform
     )>,
-    state: Res<CurrentState<CharacterState>>,
     time: Res<Time>,
 ) {
     let (mut controller,  character, transform) = q.single_mut();
-    let state = state.0;
 
-    let speed = character.speed.get_for_state(state);
     let gravity = character.forces.gravity;
-    let movement = character.forces.movement.mul(speed).clamp_length(0., speed);
+    let movement = character.forces.movement;
     let actions = character.forces.actions;
 
     let direction = movement
