@@ -12,7 +12,7 @@ impl Plugin for CharacterControllerPlugin {
             .add_plugin(InputManagerPlugin::<CharacterMovement>::default())
             .add_plugin(InputManagerPlugin::<CharacterActions>::default())
             .add_startup_system(spawn_player)
-            .add_system(update_player_state)
+            .add_system(update_player_state) // FIXME: systems ordering?
             .add_system(update_player_speed)
             .add_system(update_gravity_force)
             .add_system(update_action_force)
@@ -47,6 +47,7 @@ impl CharacterSpeedSettings {
 struct CharacterMovementController {
     speed: CharacterSpeedSettings,
     forces: CharacterForces,
+    jump_force: f32,
     height: f32,
 }
 
@@ -86,12 +87,13 @@ fn spawn_player(mut commands: Commands) {
             slide: 25.0,
             current: 1.0,
         },
+        jump_force: 15.0,
         forces: Default::default(),
     };
     commands
         .spawn(RigidBody::KinematicPositionBased)
         .insert(KinematicCharacterController {
-            offset: CharacterLength::Absolute(0.01),
+            offset: CharacterLength::Absolute(0.05),
             slide: false,
             autostep: Some(CharacterAutostep {
                 max_height: CharacterLength::Absolute(0.5),
@@ -157,7 +159,8 @@ fn update_gravity_force(
     if physics.grounded {
         movement.forces.gravity = Vec3::ZERO;
     } else {
-        movement.forces.gravity += Vec3::new(0.0, -9.81 * 5.0, 0.0) * time.delta_seconds();
+        // FIXME: add mass to the equation
+        movement.forces.gravity += Vec3::new(0.0, -9.81 * 10.0, 0.0) * time.delta_seconds();
     };
 }
 
@@ -190,8 +193,8 @@ fn update_player_speed(
         CharacterState::Walk => character.speed.base,
         CharacterState::Slide => character.speed.slide,
         CharacterState::Crouch => character.speed.crouch,
-        CharacterState::Jump => character.speed.base,
-        CharacterState::Fall => character.speed.base,
+        CharacterState::Jump => character.speed.run, // FIXME: Technically incorrect
+        CharacterState::Fall => character.speed.run,
         CharacterState::Idle => 1.0,
     }
 }
@@ -201,15 +204,15 @@ fn update_action_force(
     state: Res<CurrentState<CharacterState>>,
 ) {
     let mut character = q.single_mut();
+
     let speed = character.speed.current();
+    let move_direction = character.forces.movement;
 
     let action_force = match state.0 {
-        CharacterState::Slide => character.forces.movement,
-        CharacterState::Jump => Vec3::new(0., 100., 0.),
+        CharacterState::Slide => move_direction,
+        CharacterState::Jump => Vec3::new(0., character.jump_force, 0.),
         _ => Vec3::ZERO,
     };
-
-    action_force.mul(speed).clamp_length(0., speed);
 
     character.forces.actions = action_force;
 }

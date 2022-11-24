@@ -24,6 +24,7 @@ impl CharacterState {
     ) -> Option<CharacterState> {
         let mut new_state = None;
 
+        println!("{state:?}, {:?}, {:?}", physics.effective_translation, physics.effective_translation == Vec3::ZERO);
         match state {
             Run => {
                 if actions.just_released(CharacterActions::Sprint)  { new_state = Some(Walk) }
@@ -43,7 +44,7 @@ impl CharacterState {
                 if actions.just_released(CharacterActions::Crouch)  { new_state = Some(Idle) }
             }
             Jump => {
-                if physics.grounded                                 { new_state = Some(Idle) }
+                if physics.effective_translation.y < 0.0 { new_state = Some(Fall) }
             }
             Fall => {
                 if physics.grounded                                 { new_state = Some(Idle) }
