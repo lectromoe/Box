@@ -33,25 +33,36 @@ impl CharacterState {
                 if actions.just_released(CharacterActions::Sprint) { new_state = Some(Walk) }
                 if actions.just_pressed(CharacterActions::Crouch) { new_state = Some(Slide) }
                 if actions.just_pressed(CharacterActions::Jump) { new_state = Some(Jump) }
+                if physics.effective_translation == Vec3::ZERO { new_state = Some(Idle) }
             }
             Walk => {
                 if actions.pressed(CharacterActions::Sprint) { new_state = Some(Run) }
                 if actions.just_pressed(CharacterActions::Crouch) { new_state = Some(Crouch) }
                 if actions.just_pressed(CharacterActions::Jump) { new_state = Some(Jump) }
+                if physics.effective_translation == Vec3::ZERO { new_state = Some(Idle) }
             }
             Slide => {
                 if actions.just_pressed(CharacterActions::Jump) { new_state = Some(Jump) }
                 if actions.just_released(CharacterActions::Crouch) { new_state = Some(Run) }
-            }
-            Crouch => {
-                if actions.just_released(CharacterActions::Crouch) { new_state = Some(Idle) }
             }
             Jump => {
                 if physics.effective_translation.y < 0.0 { new_state = Some(Fall) }
             }
             Idle => {
                 if actions.just_pressed(CharacterActions::Jump) { new_state = Some(Jump) }
+                if actions.just_pressed(CharacterActions::Crouch) { new_state = Some(Crouch) }
                 if physics.effective_translation != Vec3::ZERO { new_state = Some(Walk) }
+            }
+            Crouch => {
+                if actions.just_released(CharacterActions::Crouch) { 
+                    new_state = Some(Idle);
+                    if physics.effective_translation != Vec3::ZERO { 
+                        new_state = Some(Walk);
+                        if actions.pressed(CharacterActions::Sprint) { 
+                            new_state = Some(Run) 
+                        } 
+                    } 
+                }
             }
             Fall => {
                 if physics.grounded { 

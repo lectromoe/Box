@@ -180,11 +180,11 @@ fn update_movement_force(
 }
 
 fn update_player_speed(
-    mut q: Query<&mut CharacterMovementController>,
+    q: Query<&CharacterMovementController>,
     state: Res<CurrentState<CharacterState>>,
     mut commands: Commands,
 ) {
-    let mut character = q.single_mut();
+    let character = q.single();
 
     let speed: Option<CharacterSpeed> = match state.0 {
         CharacterState::Run => Some(character.speed.run),
