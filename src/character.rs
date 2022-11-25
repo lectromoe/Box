@@ -9,6 +9,7 @@ pub struct CharacterControllerPlugin;
 impl Plugin for CharacterControllerPlugin {
     fn build(&self, app: &mut App) {
         app.add_loopless_state(CharacterState::Walk)
+            .add_loopless_state(CharacterSpeed(1))
             .add_plugin(InputManagerPlugin::<CharacterMovement>::default())
             .add_plugin(InputManagerPlugin::<CharacterActions>::default())
             .add_startup_system(spawn_player)
@@ -30,17 +31,10 @@ struct CharacterForces {
 }
 
 struct CharacterSpeedSettings {
-    pub base: f32,
-    pub run: f32,
-    pub crouch: f32,
-    pub slide: f32,
-    current: f32,
-}
-
-impl CharacterSpeedSettings {
-    pub fn current(&self) -> f32 {
-        self.current
-    }
+    pub base: CharacterSpeed,
+    pub run: CharacterSpeed,
+    pub crouch: CharacterSpeed,
+    pub slide: CharacterSpeed,
 }
 
 #[derive(Component)]
@@ -49,6 +43,7 @@ struct CharacterMovementController {
     forces: CharacterForces,
     jump_force: f32,
     height: f32,
+    mass: f32,
 }
 
 #[derive(Actionlike, Clone, Debug, Copy, PartialEq, Eq)]
@@ -81,14 +76,14 @@ fn spawn_player(mut commands: Commands) {
     let settings = CharacterMovementController {
         height: 2.0,
         speed: CharacterSpeedSettings {
-            base: 10.0,
-            run: 20.0,
-            crouch: 5.0,
-            slide: 25.0,
-            current: 1.0,
+            base: CharacterSpeed(10),
+            run: CharacterSpeed(20),
+            crouch: CharacterSpeed(5),
+            slide: CharacterSpeed(25),
         },
-        jump_force: 15.0,
         forces: Default::default(),
+        jump_force: 30.0,
+        mass: 20.0,
     };
     commands
         .spawn(RigidBody::KinematicPositionBased)
@@ -103,7 +98,7 @@ fn spawn_player(mut commands: Commands) {
             max_slope_climb_angle: 45.0_f32.to_radians(),
             min_slope_slide_angle: 30.0_f32.to_radians(),
             apply_impulse_to_dynamic_bodies: true,
-            snap_to_ground: Some(CharacterLength::Absolute(0.05)),
+            snap_to_ground: Some(CharacterLength::Absolute(0.01)),
             ..Default::default()
         })
         .insert(Collider::capsule_y(settings.height / 2., 1.0))
@@ -154,13 +149,14 @@ fn update_gravity_force(
     )>,
     time: Res<Time>,
 ) {
-    let (mut movement, physics) = q.single_mut();
+    let (mut character, physics) = q.single_mut();
+    let mass = character.mass;
+    let gravity = Vec3::new(0.0, -9.81, 0.0);
 
     if physics.grounded {
-        movement.forces.gravity = Vec3::ZERO;
+        character.forces.gravity = Vec3::ZERO;
     } else {
-        // FIXME: add mass to the equation
-        movement.forces.gravity += Vec3::new(0.0, -9.81 * 10.0, 0.0) * time.delta_seconds();
+        character.forces.gravity += gravity * mass * time.delta_seconds();
     };
 }
 
@@ -169,9 +165,10 @@ fn update_movement_force(
         &mut CharacterMovementController,
         &ActionState<CharacterMovement>,
     )>,
+    speed: Res<CurrentState<CharacterSpeed>>,
 ) {
     let (mut character, movement) = q.single_mut();
-    let speed = character.speed.current();
+    let speed = *speed.0 as f32;
 
     character.forces.movement = movement
         .get_pressed()
@@ -185,17 +182,20 @@ fn update_movement_force(
 fn update_player_speed(
     mut q: Query<&mut CharacterMovementController>,
     state: Res<CurrentState<CharacterState>>,
+    mut commands: Commands,
 ) {
     let mut character = q.single_mut();
 
-    character.speed.current = match state.0 {
-        CharacterState::Run => character.speed.run,
-        CharacterState::Walk => character.speed.base,
-        CharacterState::Slide => character.speed.slide,
-        CharacterState::Crouch => character.speed.crouch,
-        CharacterState::Jump => character.speed.run, // FIXME: Technically incorrect
-        CharacterState::Fall => character.speed.run,
-        CharacterState::Idle => 1.0,
+    let speed: Option<CharacterSpeed> = match state.0 {
+        CharacterState::Run => Some(character.speed.run),
+        CharacterState::Walk => Some(character.speed.base),
+        CharacterState::Slide => Some(character.speed.slide),
+        CharacterState::Crouch => Some(character.speed.crouch),
+        _ => None,
+    };
+
+    if let Some(speed) = speed {
+        commands.insert_resource(NextState(speed));
     }
 }
 
@@ -204,8 +204,6 @@ fn update_action_force(
     state: Res<CurrentState<CharacterState>>,
 ) {
     let mut character = q.single_mut();
-
-    let speed = character.speed.current();
     let move_direction = character.forces.movement;
 
     let action_force = match state.0 {
