@@ -1,7 +1,6 @@
 use crate::prelude::*;
 use bevy::prelude::*;
 use bevy_rapier3d::prelude::*;
-use iyes_loopless::prelude::*;
 use leafwing_input_manager::prelude::*;
 use std::ops::{Add, Mul};
 
@@ -15,7 +14,7 @@ pub enum CharacterControllerStages {
 pub struct CharacterControllerPlugin;
 impl Plugin for CharacterControllerPlugin {
     fn build(&self, app: &mut App) {
-        app.add_loopless_state(CharacterSpeed(1))
+        app.add_state(CharacterSpeed(1))
             .add_plugin(InputManagerPlugin::<CharacterMovement>::default())
             .add_plugin(InputManagerPlugin::<CharacterActions>::default())
             .add_startup_system(spawn_player)
@@ -179,10 +178,10 @@ fn update_movement_force(
         &mut CharacterMovementController,
         &ActionState<CharacterMovement>,
     )>,
-    speed: Res<CurrentState<CharacterSpeed>>,
+    speed: Res<State<CharacterSpeed>>,
 ) {
     let (mut character, movement) = q.single_mut();
-    let speed = *speed.0 as f32;
+    let speed = **speed.current() as f32;
 
     character.forces.movement = movement
         .get_pressed()
@@ -196,7 +195,7 @@ fn update_movement_force(
 fn update_player_speed(
     q: Query<&CharacterMovementController>,
     state: Res<State<CharacterState>>,
-    mut commands: Commands,
+    mut speed: ResMut<State<CharacterSpeed>>,
 ) {
     let character = q.single();
 
@@ -208,8 +207,8 @@ fn update_player_speed(
         _ => None,
     };
 
-    if let Some(speed) = new_speed {
-        commands.insert_resource(NextState(speed));
+    if let Some(new_speed) = new_speed {
+        speed.set(new_speed).unwrap_or_default();
     }
 }
 
