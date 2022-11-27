@@ -24,10 +24,10 @@ fn main() {
                     filter: "wgpu=error,bevy_render=info,bevy_ecs=error".to_string(),
                 }),
         )
-        .add_plugin(DebugCameraPlugin)
-        .add_plugin(CharacterControllerPlugin)
         .add_plugin(RapierPhysicsPlugin::<NoUserData>::default())
         .add_plugin(RapierDebugRenderPlugin::default())
+        .add_plugin(DebugCameraPlugin)
+        .add_plugin(CharacterControllerPlugin)
         .add_startup_system(build_map)
         .run()
 }
