@@ -15,8 +15,7 @@ pub enum CharacterControllerStages {
 pub struct CharacterControllerPlugin;
 impl Plugin for CharacterControllerPlugin {
     fn build(&self, app: &mut App) {
-        app.add_loopless_state(CharacterState::Walk)
-            .add_loopless_state(CharacterSpeed(1))
+        app.add_loopless_state(CharacterSpeed(1))
             .add_plugin(InputManagerPlugin::<CharacterMovement>::default())
             .add_plugin(InputManagerPlugin::<CharacterActions>::default())
             .add_startup_system(spawn_player)
@@ -25,26 +24,19 @@ impl Plugin for CharacterControllerPlugin {
                 CharacterControllerStages::Physics,
                 SystemStage::parallel(),
             )
+            .add_state_to_stage(CharacterControllerStages::Physics, CharacterState::Idle)
             .add_system_set_to_stage(
                 CharacterControllerStages::Physics,
                 SystemSet::new()
-                    .label(CharacterControllerStages::State)
-                    .with_system(update_player_state),
-            )
-            .add_system_set_to_stage(
-                CharacterControllerStages::Physics,
-                ConditionSet::new()
-                    .after(CharacterControllerStages::State)
                     .with_system(update_player_speed)
                     .with_system(update_gravity_force)
                     .with_system(update_action_force)
-                    .with_system(update_movement_force)
-                    .into(),
+                    .with_system(update_movement_force),
             )
             .add_system_set(
                 SystemSet::new()
-                    .label(CharacterControllerStages::Position)
-                    .with_system(update_player_pos),
+                    .with_system(update_player_pos)
+                    .with_system(update_player_state),
             );
     }
 }
@@ -64,12 +56,23 @@ struct CharacterSpeedSettings {
 }
 
 #[derive(Component)]
-struct CharacterMovementController {
+pub struct CharacterMovementController {
     speed: CharacterSpeedSettings,
     forces: CharacterForces,
     jump_force: f32,
+    grounded: bool,
     height: f32,
     mass: f32,
+}
+
+impl CharacterMovementController {
+    pub fn grounded(&self) -> bool {
+        self.grounded
+    }
+
+    pub fn set_grounded(&mut self, grounded: bool) {
+        self.grounded = grounded;
+    }
 }
 
 #[derive(Actionlike, Clone, Debug, Copy, PartialEq, Eq)]
@@ -110,6 +113,7 @@ fn spawn_player(mut commands: Commands) {
         jump_force: 30.0,
         height: 2.0,
         mass: 30.0,
+        grounded: false,
     };
     commands
         .spawn(RigidBody::KinematicPositionBased)
@@ -191,12 +195,12 @@ fn update_movement_force(
 
 fn update_player_speed(
     q: Query<&CharacterMovementController>,
-    state: Res<CurrentState<CharacterState>>,
+    state: Res<State<CharacterState>>,
     mut commands: Commands,
 ) {
     let character = q.single();
 
-    let new_speed: Option<CharacterSpeed> = match state.0 {
+    let new_speed: Option<CharacterSpeed> = match state.current() {
         CharacterState::Run => Some(character.speed.run),
         CharacterState::Walk => Some(character.speed.base),
         CharacterState::Slide => Some(character.speed.slide),
@@ -211,12 +215,12 @@ fn update_player_speed(
 
 fn update_action_force(
     mut q: Query<&mut CharacterMovementController>,
-    state: Res<CurrentState<CharacterState>>,
+    state: Res<State<CharacterState>>,
 ) {
     let mut character = q.single_mut();
     let move_direction = character.forces.movement;
 
-    let action_force = match state.0 {
+    let action_force = match state.current() {
         CharacterState::Slide => move_direction,
         CharacterState::Jump => Vec3::new(0., character.jump_force, 0.),
         _ => Vec3::ZERO,
@@ -239,6 +243,7 @@ fn update_player_pos(
     let gravity = character.forces.gravity;
     let movement = character.forces.movement;
     let actions = character.forces.actions;
+
 
     let direction = movement
         .add(actions) 
