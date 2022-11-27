@@ -17,6 +17,11 @@ pub enum CharacterState {
 
 #[derive(Resource, Debug, Clone, Copy, PartialEq, Eq, Hash, Deref, DerefMut)]
 pub struct CharacterSpeed(pub i32);
+impl CharacterSpeed {
+    pub fn get(&self) -> f32 {
+        self.0 as f32
+    }
+}
 
 #[rustfmt::skip]
 pub fn update_player_state(

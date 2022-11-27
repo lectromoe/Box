@@ -1,5 +1,4 @@
 use bevy::{prelude::*, render::camera::Projection};
-use iyes_loopless::prelude::*;
 use leafwing_input_manager::prelude::*;
 use std::fmt::Debug;
 
@@ -30,38 +29,26 @@ pub struct DebugCameraPlugin;
 impl Plugin for DebugCameraPlugin {
     fn build(&self, app: &mut App) {
         app.add_startup_system(spawn_camera)
-            .add_loopless_state(CameraState::FreeFloat)
+            .add_state(CameraState::FreeFloat)
             .add_plugin(InputManagerPlugin::<CameraAction>::default())
             .add_plugin(InputManagerPlugin::<CameraMovement>::default())
             .add_system(update_camera_state)
             .add_system_set(
-                ConditionSet::new()
-                    .run_in_state(CameraState::Locked)
-                    .with_system(update_camera_pos)
-                    .into(),
+                SystemSet::on_update(CameraState::Locked).with_system(update_camera_pos),
             )
+            .add_system_set(SystemSet::on_update(CameraState::Fps).with_system(update_camera_rot))
             .add_system_set(
-                ConditionSet::new()
-                    .run_in_state(CameraState::Fps)
-                    .with_system(update_camera_rot)
-                    .into(),
-            )
-            .add_system_set(
-                ConditionSet::new()
-                    .run_in_state(CameraState::Editor)
+                SystemSet::on_update(CameraState::Editor)
                     .with_system(update_camera_rot)
                     .with_system(update_camera_pos)
-                    .with_system(update_camera_pan)
-                    .into(),
+                    .with_system(update_camera_pan),
             )
             .add_system_set(
-                ConditionSet::new()
-                    .run_in_state(CameraState::FreeFloat)
+                SystemSet::on_update(CameraState::FreeFloat)
                     .with_system(update_camera_zoom)
                     .with_system(update_camera_pos)
                     .with_system(update_camera_rot)
-                    .with_system(update_camera_pan)
-                    .into(),
+                    .with_system(update_camera_pan),
             );
     }
 }
@@ -147,8 +134,7 @@ fn spawn_camera(mut commands: Commands) {
 
 fn update_camera_state(
     mut q: Query<(&mut DebugCamera, &ActionState<CameraAction>)>,
-    state: Res<CurrentState<CameraState>>,
-    mut commands: Commands,
+    mut state: ResMut<State<CameraState>>,
 ) {
     let (mut camera, actions) = q.single_mut();
 
@@ -161,9 +147,9 @@ fn update_camera_state(
     };
 
     if actions.just_pressed(CameraAction::FreeFloatToggle) {
-        match state.0 {
-            CameraState::FreeFloat => commands.insert_resource(NextState(CameraState::Editor)),
-            _ => commands.insert_resource(NextState(CameraState::FreeFloat)),
+        match *state.current() {
+            CameraState::FreeFloat => state.set(CameraState::Editor).unwrap(),
+            _ => state.set(CameraState::FreeFloat).unwrap(),
         };
     };
 }
@@ -193,13 +179,13 @@ fn update_camera_zoom(mut q: Query<(&mut Projection, &DebugCamera, &ActionState<
 
 fn update_camera_rot(
     mut q: Query<(&mut Transform, &DebugCamera, &ActionState<CameraAction>)>,
-    state: Res<CurrentState<CameraState>>,
+    state: Res<State<CameraState>>,
 ) {
     let (mut transform, camera, actions) = q.single_mut();
     let motion = actions.axis_pair(CameraAction::Pan).unwrap();
     let triggered = actions.pressed(CameraAction::MoveTrigger);
 
-    if state.0 == CameraState::FreeFloat || triggered {
+    if *state.current() == CameraState::FreeFloat || triggered {
         transform.rotation =
             Quat::from_rotation_y(-motion.x() * camera.look_sens) * transform.rotation;
         transform.rotation *= Quat::from_rotation_x(-motion.y() * camera.look_sens);
@@ -213,12 +199,12 @@ fn update_camera_pos(
         &ActionState<CameraMovement>,
         &ActionState<CameraAction>,
     )>,
-    state: Res<CurrentState<CameraState>>,
+    state: Res<State<CameraState>>,
 ) {
     let (mut transform, camera, movement, actions) = q.single_mut();
     let triggered = actions.pressed(CameraAction::MoveTrigger);
 
-    if (state.0 == CameraState::FreeFloat) || triggered {
+    if (*state.current() == CameraState::FreeFloat) || triggered {
         movement.get_pressed().iter().for_each(|movement| {
             let mut direction = movement.into_vec();
 

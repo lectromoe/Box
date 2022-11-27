@@ -909,7 +909,6 @@ version = "0.1.0"
 dependencies = [
  "bevy",
  "bevy_rapier3d",
- "iyes_loopless",
  "leafwing-input-manager",
 ]
 
@@ -1819,17 +1818,6 @@ name = "itoa"
 version = "1.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6c8af84674fe1f223a982c933a0ee1086ac4d4052aa0fb8060c12c6ad838e754"
-
-[[package]]
-name = "iyes_loopless"
-version = "0.9.1"
-source = "git+https://github.com/IyesGames/iyes_loopless#9bd6ce8321b058a0324f75ddee43fc27f6bf8630"
-dependencies = [
- "bevy_app",
- "bevy_ecs",
- "bevy_time",
- "bevy_utils",
-]
 
 [[package]]
 name = "jni"

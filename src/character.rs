@@ -181,7 +181,7 @@ fn update_movement_force(
     speed: Res<State<CharacterSpeed>>,
 ) {
     let (mut character, movement) = q.single_mut();
-    let speed = **speed.current() as f32;
+    let speed = speed.current().get();
 
     character.forces.movement = movement
         .get_pressed()
@@ -242,7 +242,6 @@ fn update_player_pos(
     let gravity = character.forces.gravity;
     let movement = character.forces.movement;
     let actions = character.forces.actions;
-
 
     let direction = movement
         .add(actions) 
