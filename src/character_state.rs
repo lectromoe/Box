@@ -4,7 +4,7 @@ use bevy_rapier3d::prelude::*;
 use leafwing_input_manager::prelude::*;
 use CharacterState::*;
 
-#[derive(Resource, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Resource, States, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum CharacterState {
     Run,
     Idle,
@@ -15,11 +15,18 @@ pub enum CharacterState {
     Fall,
 }
 
-#[derive(Resource, Debug, Clone, Copy, PartialEq, Eq, Hash, Deref, DerefMut)]
-pub struct CharacterSpeed(pub i32);
+impl Default for CharacterState {
+    fn default() -> Self {
+        return Self::Walk;
+    }
+}
+
+#[derive(Default, Resource, Debug, Clone, Copy, PartialEq, Deref, DerefMut)]
+pub struct CharacterSpeed(pub f32);
+
 impl CharacterSpeed {
-    pub fn get(&self) -> f32 {
-        self.0 as f32
+    pub(crate) fn get(&self) -> f32 {
+        self.0
     }
 }
 
@@ -31,12 +38,13 @@ pub fn update_player_state(
         &ActionState<CharacterActions>,
     )>,
     mut state: ResMut<State<CharacterState>>,
+    mut next_state: ResMut<NextState<CharacterState>>,
 ) {
     let (mut character, physics, actions) = q.single_mut();
     let mut new_state = None;
     let grounded = character.grounded();
 
-    match state.current() {
+    match state.get() {
         Run => {
             if actions.just_released(CharacterActions::Sprint) { new_state = Some(Walk) }
             if actions.just_pressed(CharacterActions::Crouch) { new_state = Some(Slide) }
@@ -93,6 +101,6 @@ pub fn update_player_state(
     character.set_grounded(physics.grounded);
 
     if let Some(new_state) = new_state {
-        state.set(new_state).unwrap_or_default();
+        next_state.set(new_state)
     }
 }

@@ -1,42 +1,26 @@
 use crate::prelude::*;
-use bevy::prelude::*;
+use bevy::{prelude::*, reflect::TypePath};
 use bevy_rapier3d::prelude::*;
 use leafwing_input_manager::prelude::*;
-use std::ops::{Add, Mul};
-
-#[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel, SystemLabel)]
-pub enum CharacterControllerStages {
-    Physics,
-    State,
-    Position,
-}
+use std::ops::{Add, Mul, Deref};
 
 pub struct CharacterControllerPlugin;
 impl Plugin for CharacterControllerPlugin {
     fn build(&self, app: &mut App) {
-        app.add_state(CharacterSpeed(1))
-            .add_plugin(InputManagerPlugin::<CharacterMovement>::default())
-            .add_plugin(InputManagerPlugin::<CharacterActions>::default())
-            .add_startup_system(spawn_player)
-            .add_stage_after(
-                PhysicsStages::Writeback,
-                CharacterControllerStages::Physics,
-                SystemStage::parallel(),
+        app.init_resource::<CharacterSpeed>()
+            .add_plugins(InputManagerPlugin::<CharacterMovement>::default())
+            .add_plugins(InputManagerPlugin::<CharacterActions>::default())
+            .add_systems(Startup, spawn_player)
+            .add_systems(
+                Update,
+                (
+                    update_player_speed,
+                    update_gravity_force,
+                    update_action_force,
+                    update_movement_force,
+                ),
             )
-            .add_state_to_stage(CharacterControllerStages::Physics, CharacterState::Idle)
-            .add_system_set_to_stage(
-                CharacterControllerStages::Physics,
-                SystemSet::new()
-                    .with_system(update_player_speed)
-                    .with_system(update_gravity_force)
-                    .with_system(update_action_force)
-                    .with_system(update_movement_force),
-            )
-            .add_system_set(
-                SystemSet::new()
-                    .with_system(update_player_pos)
-                    .with_system(update_player_state),
-            );
+            .add_systems(Update, (update_player_pos, update_player_state));
     }
 }
 
@@ -74,7 +58,7 @@ impl CharacterMovementController {
     }
 }
 
-#[derive(Actionlike, Clone, Debug, Copy, PartialEq, Eq)]
+#[derive(Actionlike, TypePath, Clone, Debug, Copy, PartialEq, Eq)]
 pub enum CharacterMovement {
     Left,
     Right,
@@ -93,7 +77,7 @@ impl CharacterMovement {
     }
 }
 
-#[derive(Actionlike, Clone, Debug, Copy, PartialEq, Eq)]
+#[derive(Actionlike, TypePath, Clone, Debug, Copy, PartialEq, Eq)]
 pub enum CharacterActions {
     Jump,
     Sprint,
@@ -103,10 +87,10 @@ pub enum CharacterActions {
 fn spawn_player(mut commands: Commands) {
     let settings = CharacterMovementController {
         speed: CharacterSpeedSettings {
-            base: CharacterSpeed(10),
-            run: CharacterSpeed(20),
-            crouch: CharacterSpeed(5),
-            slide: CharacterSpeed(25),
+            base: CharacterSpeed(10.),
+            run: CharacterSpeed(20.),
+            crouch: CharacterSpeed(5.),
+            slide: CharacterSpeed(25.),
         },
         forces: Default::default(),
         jump_force: 30.0,
@@ -146,8 +130,8 @@ fn spawn_player(mut commands: Commands) {
         .insert(InputManagerBundle::<CharacterActions> {
             input_map: InputMap::default()
                 .insert(KeyCode::Space, CharacterActions::Jump)
-                .insert(KeyCode::LControl, CharacterActions::Crouch)
-                .insert(KeyCode::LShift, CharacterActions::Sprint)
+                .insert(KeyCode::ControlLeft, CharacterActions::Crouch)
+                .insert(KeyCode::ShiftLeft, CharacterActions::Sprint)
                 .build(),
             action_state: ActionState::default(),
         })
@@ -178,28 +162,29 @@ fn update_movement_force(
         &mut CharacterMovementController,
         &ActionState<CharacterMovement>,
     )>,
-    speed: Res<State<CharacterSpeed>>,
+
+    speed: ResMut<CharacterSpeed>,
 ) {
     let (mut character, movement) = q.single_mut();
-    let speed = speed.current().get();
+    let speed = speed;
 
     character.forces.movement = movement
         .get_pressed()
         .iter()
         .map(|movement| movement.into_vec())
         .sum::<Vec3>()
-        .mul(speed)
-        .clamp_length(0., speed);
+        .mul(speed.get() as f32)
+        .clamp_length(0., speed.get());
 }
 
 fn update_player_speed(
     q: Query<&CharacterMovementController>,
     state: Res<State<CharacterState>>,
-    mut speed: ResMut<State<CharacterSpeed>>,
+    mut speed: ResMut<CharacterSpeed>,
 ) {
     let character = q.single();
 
-    let new_speed: Option<CharacterSpeed> = match state.current() {
+    let new_speed: Option<CharacterSpeed> = match state.get() {
         CharacterState::Run => Some(character.speed.run),
         CharacterState::Walk => Some(character.speed.base),
         CharacterState::Slide => Some(character.speed.slide),
@@ -208,7 +193,7 @@ fn update_player_speed(
     };
 
     if let Some(new_speed) = new_speed {
-        speed.set(new_speed).unwrap_or_default();
+        *speed = new_speed
     }
 }
 
@@ -219,7 +204,7 @@ fn update_action_force(
     let mut character = q.single_mut();
     let move_direction = character.forces.movement;
 
-    let action_force = match state.current() {
+    let action_force = match state.get() {
         CharacterState::Slide => move_direction,
         CharacterState::Jump => Vec3::new(0., character.jump_force, 0.),
         _ => Vec3::ZERO,
