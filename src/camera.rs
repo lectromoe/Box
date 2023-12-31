@@ -35,8 +35,19 @@ impl Plugin for DebugCameraPlugin {
             .add_systems(Update, update_camera_state)
             .add_systems(Update, update_camera_pos) //.run_if(CameraState::Locked)
             .add_systems(Update, update_camera_rot) // .run_if(CameraState::Fps)
-            .add_systems(Update, (update_camera_rot, update_camera_pos, update_camera_pan)) //.run_if(CameraState::Editor)
-            .add_systems(Update, (update_camera_rot, update_camera_pos, update_camera_pan, update_camera_zoom)); //.run_if(CameraState::FreeFloat)
+            .add_systems(
+                Update,
+                (update_camera_rot, update_camera_pos, update_camera_pan),
+            ) //.run_if(CameraState::Editor)
+            .add_systems(
+                Update,
+                (
+                    update_camera_rot,
+                    update_camera_pos,
+                    update_camera_pan,
+                    update_camera_zoom,
+                ),
+            ); //.run_if(CameraState::FreeFloat)
     }
 }
 
@@ -44,12 +55,12 @@ impl Plugin for DebugCameraPlugin {
 pub enum CameraState {
     #[default]
     FreeFloat, // Tranlation, Rotation
-    Locked,    // Transltaion only
-    Fps,       // Rotation only
-    Editor,    // Trigger to move
+    Locked, // Transltaion only
+    Fps,    // Rotation only
+    Editor, // Trigger to move
 }
 
-#[derive(Actionlike, TypePath, Clone, Debug, Copy, PartialEq, Eq)]
+#[derive(Actionlike, Clone, Reflect, Hash, Debug, Copy, PartialEq, Eq)]
 pub enum CameraMovement {
     Left,
     Right,
@@ -72,7 +83,7 @@ impl CameraMovement {
     }
 }
 
-#[derive(Actionlike, TypePath, Clone, Debug, Copy, PartialEq, Eq)]
+#[derive(Actionlike, Reflect, Clone, Hash, Debug, Copy, PartialEq, Eq)]
 pub enum CameraAction {
     Rotate,
     MoveTrigger,
@@ -123,7 +134,7 @@ fn spawn_camera(mut commands: Commands) {
 fn update_camera_state(
     mut q: Query<(&mut DebugCamera, &ActionState<CameraAction>)>,
     mut state: ResMut<State<CameraState>>,
-    mut next_state: ResMut<NextState<CameraState>>
+    mut next_state: ResMut<NextState<CameraState>>,
 ) {
     let (mut camera, actions) = q.single_mut();
 
@@ -138,7 +149,7 @@ fn update_camera_state(
     if actions.just_pressed(CameraAction::FreeFloatToggle) {
         match state.get() {
             CameraState::FreeFloat => next_state.set(CameraState::Editor),
-            _ => next_state.set(CameraState::FreeFloat)
+            _ => next_state.set(CameraState::FreeFloat),
         };
     };
 }

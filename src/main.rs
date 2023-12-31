@@ -6,20 +6,18 @@ use bevy::{
 use bevy_rapier3d::prelude::*;
 use boxy::prelude::*;
 
+use bevy::prelude::*;
+
 fn main() {
     App::new()
-        .add_plugins(
-            DefaultPlugins
-                
-                .set(LogPlugin {
-                    level: Level::INFO,
-                    filter: "wgpu=error,bevy_render=info,bevy_ecs=error".to_string(),
-                }),
-        )
+        .add_plugins(DefaultPlugins.set(LogPlugin {
+            level: Level::INFO,
+            filter: "wgpu=error,bevy_render=info,bevy_ecs=error".to_string(),
+        }))
         .add_plugins(RapierPhysicsPlugin::<NoUserData>::default())
         .add_plugins(RapierDebugRenderPlugin::default())
         .add_plugins(DebugCameraPlugin)
-        .add_plugins(CharacterControllerPlugin)
+        // .add_plugins(CharacterControllerPlugin)
         .add_systems(Startup, build_map)
         .run()
 }

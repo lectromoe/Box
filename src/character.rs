@@ -2,7 +2,7 @@ use crate::prelude::*;
 use bevy::{prelude::*, reflect::TypePath};
 use bevy_rapier3d::prelude::*;
 use leafwing_input_manager::prelude::*;
-use std::ops::{Add, Mul, Deref};
+use std::ops::{Add, Deref, Mul};
 
 pub struct CharacterControllerPlugin;
 impl Plugin for CharacterControllerPlugin {
@@ -58,7 +58,7 @@ impl CharacterMovementController {
     }
 }
 
-#[derive(Actionlike, TypePath, Clone, Debug, Copy, PartialEq, Eq)]
+#[derive(Actionlike, Reflect, Clone, Hash, Debug, Copy, PartialEq, Eq)]
 pub enum CharacterMovement {
     Left,
     Right,
@@ -77,7 +77,7 @@ impl CharacterMovement {
     }
 }
 
-#[derive(Actionlike, TypePath, Clone, Debug, Copy, PartialEq, Eq)]
+#[derive(Actionlike, Reflect, Clone, Hash, Debug, Copy, PartialEq, Eq)]
 pub enum CharacterActions {
     Jump,
     Sprint,
