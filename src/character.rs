@@ -4,10 +4,11 @@ use bevy_rapier3d::prelude::*;
 use leafwing_input_manager::prelude::*;
 use std::ops::{Add, Deref, Mul};
 
-pub struct CharacterControllerPlugin;
-impl Plugin for CharacterControllerPlugin {
+pub struct BoxyControllerPlugin;
+impl Plugin for BoxyControllerPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<CharacterSpeed>()
+            .add_state::<CharacterState>()
             .add_plugins(InputManagerPlugin::<CharacterMovement>::default())
             .add_plugins(InputManagerPlugin::<CharacterActions>::default())
             .add_systems(Startup, spawn_player)

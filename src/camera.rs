@@ -25,8 +25,8 @@ impl Default for DebugCamera {
     }
 }
 
-pub struct DebugCameraPlugin;
-impl Plugin for DebugCameraPlugin {
+pub struct BoxyCameraPlugin;
+impl Plugin for BoxyCameraPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, spawn_camera)
             .add_state::<CameraState>()
