@@ -1,8 +1,8 @@
 use crate::prelude::*;
-use bevy::{prelude::*, reflect::TypePath};
+use bevy::prelude::*;
 use bevy_rapier3d::prelude::*;
 use leafwing_input_manager::prelude::*;
-use std::ops::{Add, Deref, Mul};
+use std::ops::{Add, Mul};
 
 pub struct BoxyControllerPlugin;
 impl Plugin for BoxyControllerPlugin {

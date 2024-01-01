@@ -1,4 +1,4 @@
-use bevy::{prelude::*, reflect::TypePath, render::camera::Projection};
+use bevy::{prelude::*, render::camera::Projection};
 use leafwing_input_manager::prelude::*;
 use std::fmt::Debug;
 
@@ -33,12 +33,16 @@ impl Plugin for BoxyCameraPlugin {
             .add_plugins(InputManagerPlugin::<CameraAction>::default())
             .add_plugins(InputManagerPlugin::<CameraMovement>::default())
             .add_systems(Update, update_camera_state)
-            .add_systems(Update, update_camera_pos) //.run_if(CameraState::Locked)
-            .add_systems(Update, update_camera_rot) // .run_if(CameraState::Fps)
             .add_systems(
                 Update,
-                (update_camera_rot, update_camera_pos, update_camera_pan),
-            ) //.run_if(CameraState::Editor)
+                update_camera_pos.run_if(in_state(CameraState::Locked)),
+            )
+            .add_systems(Update, update_camera_rot.run_if(in_state(CameraState::Fps)))
+            .add_systems(
+                Update,
+                (update_camera_rot, update_camera_pos, update_camera_pan)
+                    .run_if(in_state(CameraState::Editor)),
+            )
             .add_systems(
                 Update,
                 (
@@ -46,8 +50,9 @@ impl Plugin for BoxyCameraPlugin {
                     update_camera_pos,
                     update_camera_pan,
                     update_camera_zoom,
-                ),
-            ); //.run_if(CameraState::FreeFloat)
+                )
+                    .run_if(in_state(CameraState::FreeFloat)),
+            );
     }
 }
 
@@ -133,7 +138,7 @@ fn spawn_camera(mut commands: Commands) {
 
 fn update_camera_state(
     mut q: Query<(&mut DebugCamera, &ActionState<CameraAction>)>,
-    mut state: ResMut<State<CameraState>>,
+    state: ResMut<State<CameraState>>,
     mut next_state: ResMut<NextState<CameraState>>,
 ) {
     let (mut camera, actions) = q.single_mut();

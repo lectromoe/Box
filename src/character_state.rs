@@ -37,7 +37,7 @@ pub fn update_player_state(
         &KinematicCharacterControllerOutput,
         &ActionState<CharacterActions>,
     )>,
-    mut state: ResMut<State<CharacterState>>,
+    state: ResMut<State<CharacterState>>,
     mut next_state: ResMut<NextState<CharacterState>>,
 ) {
     let (mut character, physics, actions) = q.single_mut();

@@ -1,12 +1,9 @@
 use bevy::{
     log::{Level, LogPlugin},
     prelude::*,
-    window::WindowResolution,
 };
 use bevy_rapier3d::prelude::*;
 use boxy::prelude::*;
-
-use bevy::prelude::*;
 
 fn main() {
     App::new()
