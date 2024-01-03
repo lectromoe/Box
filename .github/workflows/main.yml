@@ -1,0 +1,30 @@
+name: Deploy WebAssembly to GitHub Pages
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Build WebAssembly
+        run: cargo run --target wasm32-unknown-unknown
+
+      - name: Create gh-pages branch
+        run: git checkout -b gh-pages
+
+      - name: Copy web files to gh-pages branch
+        run: mkdir -p ./gh-pages
+        run: cp -r target/wasm32-unknown-unknown/debug/* ./gh-pages/
+
+      - name: Commit changes to gh-pages branch
+        run: git add .
+        run: git commit -m "Deploy WebAssembly"
+
+      - name: Push gh-pages branch
+        run: git push origin gh-pages
