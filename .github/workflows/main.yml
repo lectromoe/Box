@@ -34,10 +34,10 @@ jobs:
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Build
-        run: trunk build src/index.html --release --public-url /dist/
+        run: trunk build src/index.html --release --public-url /boxy/
 
       - name: Create .nojekyll file
-        run: touch dist/.nojekyll
+        run: touch ./dist/.nojekyll
 
       - name: Publish to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3.7.0
