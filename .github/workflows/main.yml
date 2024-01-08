@@ -17,6 +17,11 @@ jobs:
           toolchain: stable
           target: wasm32-unknown-unknown
 
+      - name: Setup Node
+        uses: actions/setup-node@v1
+        with:
+          node-version: 14
+
       - name: Install trunk
         run: >
           wget -qO-
@@ -34,7 +39,7 @@ jobs:
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Build
-        run: trunk build src/index.html --release --public-url /boxy/
+        run: trunk build --release --public-url /boxy/
 
       - name: Create .nojekyll file
         run: touch ./dist/.nojekyll
