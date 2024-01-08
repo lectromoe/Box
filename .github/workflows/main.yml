@@ -12,11 +12,14 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Build WebAssembly
-        run: cargo run --target wasm32-unknown-unknown
+      - name: Install Trunk 
+        uses: jetli/trunk-action@v0.4.0
+            
+      - name: Build WebAssembly using Trunk
+        run: trunk build
 
       - name: Create gh-pages branch
-        run: git checkout -b gh-pages
+        run: git subtree push --prefix dist origin gh-pages
 
       - name: Copy web files to gh-pages branch
         run: mkdir -p ./gh-pages

@@ -10,7 +10,6 @@ leafwing-input-manager = "0.11.2"
 
 [profile.release]
 opt-level = 'z'
-to = "thin"
 
 [profile.dev.package."*"]
 opt-level = 3
