@@ -3,8 +3,7 @@ name: Deploy WebAssembly to GitHub Pages
 on:
   workflow_dispatch:
   push:
-    branches: 
-      - main 
+    branches: [ main, master ]
 
 jobs:
   deploy:
