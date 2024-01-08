@@ -17,6 +17,9 @@ jobs:
           toolchain: stable
           target: wasm32-unknown-unknown
 
+      - name: add wasm32-unknown-unknown target
+        run: rustup target add wasm32-unknown-unknown
+
       - name: Setup Node
         uses: actions/setup-node@v1
         with:
