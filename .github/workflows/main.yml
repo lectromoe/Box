@@ -22,5 +22,8 @@ jobs:
       - name: Build using Trunk
         run: trunk build
 
+      - name: add dist folder to git
+        run: git add dist && git commit -m "dist subtree commit"
+
       - name: Push dist folder to gh-pages branch
         run: git subtree push --prefix dist origin gh-pages
