@@ -39,6 +39,17 @@ struct CharacterSpeedSettings {
     pub slide: CharacterSpeed,
 }
 
+impl Default for CharacterSpeedSettings {
+    fn default() -> Self {
+        return CharacterSpeedSettings {
+            base: CharacterSpeed(10.),
+            run: CharacterSpeed(20.),
+            crouch: CharacterSpeed(5.),
+            slide: CharacterSpeed(25.),
+        };
+    }
+}
+
 #[derive(Component)]
 pub struct CharacterMovementController {
     speed: CharacterSpeedSettings,
