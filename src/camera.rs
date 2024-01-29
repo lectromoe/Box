@@ -12,6 +12,37 @@ pub struct DebugCamera {
     pub upside_down: bool,
 }
 
+#[derive(Default, Resource, States, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum CameraState {
+    #[default]
+    FreeFloat, // Tranlation, Rotation
+    Locked,      // Transltaion only
+    FirstPerson, // Rotation only
+    ThirdPerson, // Rotation around object
+    Editor,      // Trigger to move
+}
+
+#[derive(Actionlike, Clone, Reflect, Hash, Debug, Copy, PartialEq, Eq)]
+pub enum CameraMovement {
+    Left,
+    Right,
+    Back,
+    Forward,
+    Up,
+    Down,
+}
+
+#[derive(Actionlike, Reflect, Clone, Hash, Debug, Copy, PartialEq, Eq)]
+pub enum CameraAction {
+    Rotate,
+    MoveTrigger,
+    Pan,
+    PanTrigger,
+    Zoom,
+    SpeedTrigger,
+    ModeCycleTrigger,
+}
+
 impl Default for DebugCamera {
     fn default() -> Self {
         DebugCamera {
@@ -22,6 +53,26 @@ impl Default for DebugCamera {
             zoom_sens: 0.1,
             upside_down: false,
         }
+    }
+}
+
+trait Cycle {
+    fn next(&self) -> Self;
+}
+
+impl Cycle for CameraState {
+    fn next(&self) -> Self {
+        const STATES: [CameraState; 5] = [
+            CameraState::FreeFloat,
+            CameraState::Locked,
+            CameraState::FirstPerson,
+            CameraState::ThirdPerson,
+            CameraState::Editor,
+        ];
+        let index = STATES.iter().position(|&state| state == *self).unwrap_or(0);
+        let next_index = (index + 1) % STATES.len();
+
+        STATES[next_index]
     }
 }
 
@@ -37,7 +88,10 @@ impl Plugin for BoxyCameraPlugin {
                 Update,
                 update_camera_pos.run_if(in_state(CameraState::Locked)),
             )
-            .add_systems(Update, update_camera_rot.run_if(in_state(CameraState::Fps)))
+            .add_systems(
+                Update,
+                update_camera_rot.run_if(in_state(CameraState::FirstPerson)),
+            )
             .add_systems(
                 Update,
                 (update_camera_rot, update_camera_pos, update_camera_pan)
@@ -56,25 +110,6 @@ impl Plugin for BoxyCameraPlugin {
     }
 }
 
-#[derive(Default, Resource, States, Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum CameraState {
-    #[default]
-    FreeFloat, // Tranlation, Rotation
-    Locked, // Transltaion only
-    Fps,    // Rotation only
-    Editor, // Trigger to move
-}
-
-#[derive(Actionlike, Clone, Reflect, Hash, Debug, Copy, PartialEq, Eq)]
-pub enum CameraMovement {
-    Left,
-    Right,
-    Back,
-    Forward,
-    Up,
-    Down,
-}
-
 impl CameraMovement {
     pub fn into_vec(self) -> Vec3 {
         match self {
@@ -86,17 +121,6 @@ impl CameraMovement {
             CameraMovement::Forward => Vec3::NEG_Z,
         }
     }
-}
-
-#[derive(Actionlike, Reflect, Clone, Hash, Debug, Copy, PartialEq, Eq)]
-pub enum CameraAction {
-    Rotate,
-    MoveTrigger,
-    Pan,
-    PanTrigger,
-    Zoom,
-    SensTrigger,
-    FreeFloatToggle,
 }
 
 fn spawn_camera(mut commands: Commands) {
@@ -118,8 +142,8 @@ fn spawn_camera(mut commands: Commands) {
                 .insert(DualAxis::mouse_wheel(), CameraAction::Zoom)
                 .insert(MouseButton::Right, CameraAction::MoveTrigger)
                 .insert(MouseButton::Middle, CameraAction::PanTrigger)
-                .insert(KeyCode::ShiftLeft, CameraAction::SensTrigger)
-                .insert(KeyCode::C, CameraAction::FreeFloatToggle)
+                .insert(KeyCode::ShiftLeft, CameraAction::SpeedTrigger)
+                .insert(KeyCode::C, CameraAction::ModeCycleTrigger)
                 .build(),
             action_state: ActionState::default(),
         })
@@ -143,19 +167,16 @@ fn update_camera_state(
 ) {
     let (mut camera, actions) = q.single_mut();
 
-    if actions.just_pressed(CameraAction::SensTrigger) {
+    if actions.just_pressed(CameraAction::SpeedTrigger) {
         camera.move_sens *= 5.0;
     };
 
-    if actions.just_released(CameraAction::SensTrigger) {
+    if actions.just_released(CameraAction::SpeedTrigger) {
         camera.move_sens *= 0.2;
     };
 
-    if actions.just_pressed(CameraAction::FreeFloatToggle) {
-        match state.get() {
-            CameraState::FreeFloat => next_state.set(CameraState::Editor),
-            _ => next_state.set(CameraState::FreeFloat),
-        };
+    if actions.just_pressed(CameraAction::ModeCycleTrigger) {
+        next_state.set(state.next());
     };
 }
 
@@ -189,8 +210,9 @@ fn update_camera_rot(
     let (mut transform, camera, actions) = q.single_mut();
     let motion = actions.axis_pair(CameraAction::Pan).unwrap();
     let triggered = actions.pressed(CameraAction::MoveTrigger);
+    let state = *state.get();
 
-    if *state.get() == CameraState::FreeFloat || triggered {
+    if state == CameraState::FreeFloat || state == CameraState::FirstPerson || triggered {
         transform.rotation =
             Quat::from_rotation_y(-motion.x() * camera.look_sens) * transform.rotation;
         transform.rotation *= Quat::from_rotation_x(-motion.y() * camera.look_sens);

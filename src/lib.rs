@@ -11,12 +11,12 @@ pub mod console;
 pub mod debugger;
 
 /// Character controller
-pub mod character;
+pub mod controller;
 
 /// Boxxed prelude
 pub mod prelude {
     pub use crate::camera::*;
-    pub use crate::character::*;
+    pub use crate::controller::*;
     pub use crate::character_state::*;
     pub use crate::console::*;
     pub use crate::debugger::*;
