@@ -46,8 +46,8 @@ pub enum CameraAction {
 impl Default for DebugCamera {
     fn default() -> Self {
         DebugCamera {
-            focus: Vec3::ZERO,
-            radius: 5.0,
+            focus: Vec3::ONE,
+            radius: 15.0,
             move_sens: 0.005,
             look_sens: 0.005,
             zoom_sens: 0.1,
@@ -91,6 +91,10 @@ impl Plugin for BoxyCameraPlugin {
             .add_systems(
                 Update,
                 update_camera_rot.run_if(in_state(CameraState::FirstPerson)),
+            )
+            .add_systems(
+                Update,
+                update_camera_orb.run_if(in_state(CameraState::ThirdPerson)),
             )
             .add_systems(
                 Update,
@@ -217,6 +221,26 @@ fn update_camera_rot(
             Quat::from_rotation_y(-motion.x() * camera.look_sens) * transform.rotation;
         transform.rotation *= Quat::from_rotation_x(-motion.y() * camera.look_sens);
     }
+}
+
+fn update_camera_orb(mut q: Query<(&mut Transform, &DebugCamera, &ActionState<CameraAction>)>) {
+    let (mut transform, camera, actions) = q.single_mut();
+    let motion = actions.axis_pair(CameraAction::Pan).unwrap();
+    let radius = camera.radius;
+    let position = camera.focus;
+
+    if motion.length_squared() == 0.0 {
+        return;
+    }
+
+    let sensitivity = 0.01; // Adjust the sensitivity based on your preference
+    let delta_yaw = -sensitivity * motion.x();
+    let delta_pitch = sensitivity * motion.y();
+    let camera_local_x = transform.local_x();
+
+    transform.translate_around(position, Quat::from_axis_angle(Vec3::Y, delta_yaw));
+    transform.translate_around(position, Quat::from_axis_angle(camera_local_x, delta_pitch));
+    transform.look_at(position, Vec3::Y);
 }
 
 fn update_camera_pos(
