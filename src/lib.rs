@@ -13,7 +13,7 @@ pub mod debugger;
 /// Character controller
 pub mod controller;
 
-/// Boxxed prelude
+/// Boxy prelude
 pub mod prelude {
     pub use crate::camera::*;
     pub use crate::controller::*;

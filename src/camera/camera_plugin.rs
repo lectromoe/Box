@@ -4,12 +4,11 @@ use std::fmt::Debug;
 
 #[derive(Component)]
 pub struct DebugCamera {
-    pub focus: Vec3,
-    pub radius: f32,
-    pub move_sens: f32,
-    pub look_sens: f32,
-    pub zoom_sens: f32,
-    pub upside_down: bool,
+    focus: Vec3,
+    radius: f32,
+    move_sens: f32,
+    look_sens: f32,
+    zoom_sens: f32,
 }
 
 #[derive(Default, Resource, States, Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -43,6 +42,46 @@ pub enum CameraAction {
     ModeCycleTrigger,
 }
 
+impl DebugCamera {
+    pub fn new(focus: Vec3, radius: f32) -> Self {
+        Self {
+            focus,
+            radius,
+            ..Default::default()
+        }
+    }
+    pub fn focus(&self) -> Vec3 {
+        self.focus
+    }
+    pub fn radius(&self) -> f32 {
+        self.radius
+    }
+    pub fn move_sens(&self) -> f32 {
+        self.move_sens
+    }
+    pub fn look_sens(&self) -> f32 {
+        self.look_sens
+    }
+    pub fn zoom_sens(&self) -> f32 {
+        self.zoom_sens
+    }
+    pub fn set_focus(&mut self, focus: Vec3) {
+        self.focus = focus;
+    }
+    pub fn set_radius(&mut self, radius: f32) {
+        self.radius = radius;
+    }
+    pub fn set_move_sens(&mut self, move_sens: f32) {
+        self.move_sens = move_sens;
+    }
+    pub fn set_look_sens(&mut self, look_sens: f32) {
+        self.look_sens = look_sens;
+    }
+    pub fn set_zoom_sens(&mut self, zoom_sens: f32) {
+        self.zoom_sens = zoom_sens;
+    }
+}
+
 impl Default for DebugCamera {
     fn default() -> Self {
         DebugCamera {
@@ -51,7 +90,6 @@ impl Default for DebugCamera {
             move_sens: 0.005,
             look_sens: 0.005,
             zoom_sens: 0.1,
-            upside_down: false,
         }
     }
 }
