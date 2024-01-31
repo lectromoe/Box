@@ -2,10 +2,10 @@ use crate::prelude::*;
 use bevy::prelude::*;
 use bevy_rapier3d::prelude::*;
 use leafwing_input_manager::prelude::*;
-use CharacterState::*;
+use ControllerState::*;
 
 #[derive(Resource, States, Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum CharacterState {
+pub enum ControllerState {
     Run,
     Idle,
     Walk,
@@ -15,30 +15,36 @@ pub enum CharacterState {
     Fall,
 }
 
-impl Default for CharacterState {
+impl Default for ControllerState {
     fn default() -> Self {
         return Self::Walk;
     }
 }
 
 #[derive(Default, Resource, Debug, Clone, Copy, PartialEq, Deref, DerefMut)]
-pub struct CharacterSpeed(pub f32);
+pub struct ControllerSpeed(pub f32);
 
-impl CharacterSpeed {
-    pub(crate) fn get(&self) -> f32 {
+impl ControllerSpeed {
+    pub fn new(speed: f32) -> Self {
+        Self(speed)
+    }
+    pub fn get(&self) -> f32 {
         self.0
+    }
+    pub fn set(&mut self, speed: f32) {
+        self.0 = speed;
     }
 }
 
 #[rustfmt::skip]
 pub fn update_player_state(
     mut q: Query<(
-        &mut CharacterMovementController,
+        &mut MovementController,
         &KinematicCharacterControllerOutput,
         &ActionState<CharacterActions>,
     )>,
-    state: ResMut<State<CharacterState>>,
-    mut next_state: ResMut<NextState<CharacterState>>,
+    state: ResMut<State<ControllerState>>,
+    mut next_state: ResMut<NextState<ControllerState>>,
 ) {
     let (mut character, physics, actions) = q.single_mut();
     let mut new_state = None;

@@ -7,8 +7,8 @@ use std::ops::{Add, Mul};
 pub struct BoxyControllerPlugin;
 impl Plugin for BoxyControllerPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<CharacterSpeed>()
-            .add_state::<CharacterState>()
+        app.init_resource::<ControllerSpeed>()
+            .add_state::<ControllerState>()
             .add_plugins(InputManagerPlugin::<CharacterMovement>::default())
             .add_plugins(InputManagerPlugin::<CharacterActions>::default())
             .add_systems(Startup, spawn_player)
@@ -25,84 +25,62 @@ impl Plugin for BoxyControllerPlugin {
     }
 }
 
-#[derive(Default, Debug)]
-struct CharacterForces {
-    gravity: Vec3,
-    movement: Vec3,
-    actions: Vec3,
-}
-
-struct CharacterSpeedSettings {
-    pub base: CharacterSpeed,
-    pub run: CharacterSpeed,
-    pub crouch: CharacterSpeed,
-    pub slide: CharacterSpeed,
-}
-
-impl Default for CharacterSpeedSettings {
-    fn default() -> Self {
-        return CharacterSpeedSettings {
-            base: CharacterSpeed(10.),
-            run: CharacterSpeed(20.),
-            crouch: CharacterSpeed(5.),
-            slide: CharacterSpeed(25.),
-        };
-    }
-}
-
 #[derive(Component)]
-pub struct CharacterMovementController {
-    speed: CharacterSpeedSettings,
-    forces: CharacterForces,
+pub struct MovementController {
+    speed: ControllerSpeedSettings,
+    forces: ControllerForces,
     jump_force: f32,
     grounded: bool,
     height: f32,
     mass: f32,
 }
 
-impl CharacterMovementController {
+impl MovementController {
     pub fn grounded(&self) -> bool {
         self.grounded
     }
-
     pub fn set_grounded(&mut self, grounded: bool) {
         self.grounded = grounded;
     }
-}
-
-#[derive(Actionlike, Reflect, Clone, Hash, Debug, Copy, PartialEq, Eq)]
-pub enum CharacterMovement {
-    Left,
-    Right,
-    Back,
-    Forward,
-}
-
-impl CharacterMovement {
-    pub fn into_vec(self) -> Vec3 {
-        match self {
-            CharacterMovement::Right => Vec3::X,
-            CharacterMovement::Left => Vec3::NEG_X,
-            CharacterMovement::Back => Vec3::Z,
-            CharacterMovement::Forward => Vec3::NEG_Z,
-        }
+    pub fn jump_force(&self) -> f32 {
+        self.jump_force
+    }
+    pub fn height(&self) -> f32 {
+        self.height
+    }
+    pub fn mass(&self) -> f32 {
+        self.mass
+    }
+    pub fn speed(&self) -> &ControllerSpeedSettings {
+        &self.speed
+    }
+    pub fn set_speed(&mut self, speed: ControllerSpeedSettings) {
+        self.speed = speed;
+    }
+    pub fn set_jump_force(&mut self, jump_force: f32) {
+        self.jump_force = jump_force;
+    }
+    pub fn set_height(&mut self, height: f32) {
+        self.height = height;
+    }
+    pub fn set_mass(&mut self, mass: f32) {
+        self.mass = mass;
+    }
+    pub fn forces(&self) -> &ControllerForces {
+        &self.forces
+    }
+    pub fn set_forces(&mut self, forces: ControllerForces) {
+        self.forces = forces;
     }
 }
 
-#[derive(Actionlike, Reflect, Clone, Hash, Debug, Copy, PartialEq, Eq)]
-pub enum CharacterActions {
-    Jump,
-    Sprint,
-    Crouch,
-}
-
 fn spawn_player(mut commands: Commands) {
-    let settings = CharacterMovementController {
-        speed: CharacterSpeedSettings {
-            base: CharacterSpeed(10.),
-            run: CharacterSpeed(20.),
-            crouch: CharacterSpeed(5.),
-            slide: CharacterSpeed(25.),
+    let settings = MovementController {
+        speed: ControllerSpeedSettings {
+            base: ControllerSpeed(10.),
+            run: ControllerSpeed(20.),
+            crouch: ControllerSpeed(5.),
+            slide: ControllerSpeed(25.),
         },
         forces: Default::default(),
         jump_force: 30.0,
@@ -151,56 +129,55 @@ fn spawn_player(mut commands: Commands) {
 }
 
 fn update_gravity_force(
-    mut q: Query<(
-        &mut CharacterMovementController,
-        &KinematicCharacterControllerOutput,
-    )>,
+    mut q: Query<(&mut MovementController, &KinematicCharacterControllerOutput)>,
     time: Res<Time>,
 ) {
     let (mut character, physics) = q.single_mut();
 
     let mass = character.mass;
-    let gravity = Vec3::new(0.0, -9.81, 0.0);
+    let gravity_constant = Vec3::new(0.0, -9.81, 0.0);
+    let gravity_force = character.forces.gravity();
 
     if physics.grounded {
-        character.forces.gravity = Vec3::ZERO;
+        character.forces.set_gravity(Vec3::ZERO);
     } else {
-        character.forces.gravity += gravity * mass * time.delta_seconds();
+        character
+            .forces
+            .set_gravity(gravity_force + (gravity_constant * mass * time.delta_seconds()));
     };
 }
 
 fn update_movement_force(
-    mut q: Query<(
-        &mut CharacterMovementController,
-        &ActionState<CharacterMovement>,
-    )>,
+    mut q: Query<(&mut MovementController, &ActionState<CharacterMovement>)>,
 
-    speed: ResMut<CharacterSpeed>,
+    speed: ResMut<ControllerSpeed>,
 ) {
     let (mut character, movement) = q.single_mut();
     let speed = speed;
 
-    character.forces.movement = movement
+    let movement = movement
         .get_pressed()
         .iter()
         .map(|movement| movement.into_vec())
         .sum::<Vec3>()
         .mul(speed.get() as f32)
         .clamp_length(0., speed.get());
+
+    character.forces.set_movement(movement);
 }
 
 fn update_player_speed(
-    q: Query<&CharacterMovementController>,
-    state: Res<State<CharacterState>>,
-    mut speed: ResMut<CharacterSpeed>,
+    q: Query<&MovementController>,
+    state: Res<State<ControllerState>>,
+    mut speed: ResMut<ControllerSpeed>,
 ) {
     let character = q.single();
 
-    let new_speed: Option<CharacterSpeed> = match state.get() {
-        CharacterState::Run => Some(character.speed.run),
-        CharacterState::Walk => Some(character.speed.base),
-        CharacterState::Slide => Some(character.speed.slide),
-        CharacterState::Crouch => Some(character.speed.crouch),
+    let new_speed: Option<ControllerSpeed> = match state.get() {
+        ControllerState::Run => Some(character.speed.run),
+        ControllerState::Walk => Some(character.speed.base),
+        ControllerState::Slide => Some(character.speed.slide),
+        ControllerState::Crouch => Some(character.speed.crouch),
         _ => None,
     };
 
@@ -209,36 +186,33 @@ fn update_player_speed(
     }
 }
 
-fn update_action_force(
-    mut q: Query<&mut CharacterMovementController>,
-    state: Res<State<CharacterState>>,
-) {
+fn update_action_force(mut q: Query<&mut MovementController>, state: Res<State<ControllerState>>) {
     let mut character = q.single_mut();
-    let move_direction = character.forces.movement;
+    let move_direction = character.forces.movement();
 
     let action_force = match state.get() {
-        CharacterState::Slide => move_direction,
-        CharacterState::Jump => Vec3::new(0., character.jump_force, 0.),
+        ControllerState::Slide => move_direction,
+        ControllerState::Jump => Vec3::new(0., character.jump_force, 0.),
         _ => Vec3::ZERO,
     };
 
-    character.forces.actions = action_force;
+    character.forces.set_actions(action_force);
 }
 
 #[rustfmt::skip]
 fn update_player_pos(
     mut q: Query<(
         &mut KinematicCharacterController,
-        &CharacterMovementController,
+        &MovementController,
         &Transform
     )>,
     time: Res<Time>,
 ) {
     let (mut controller,  character, transform) = q.single_mut();
 
-    let gravity = character.forces.gravity;
-    let movement = character.forces.movement;
-    let actions = character.forces.actions;
+    let gravity = character.forces.gravity();
+    let movement = character.forces.movement();
+    let actions = character.forces.actions();
 
     let direction = movement
         .add(actions) 
