@@ -1,6 +1,6 @@
+use crate::camera::*;
 use bevy::prelude::*;
 use leafwing_input_manager::prelude::*;
-use crate::camera::*;
 
 #[derive(Component)]
 pub struct Camera {
@@ -63,7 +63,6 @@ impl Camera {
     }
 }
 
-
 pub struct BoxyCameraPlugin;
 impl Plugin for BoxyCameraPlugin {
     fn build(&self, app: &mut App) {
@@ -101,7 +100,6 @@ impl Plugin for BoxyCameraPlugin {
             );
     }
 }
-
 
 fn spawn_camera(mut commands: Commands) {
     let translation = Vec3::new(-2.0, 2.5, 5.0);
@@ -202,8 +200,8 @@ fn update_camera_rot(
 fn update_camera_orb(mut q: Query<(&mut Transform, &Camera, &ActionState<CameraAction>)>) {
     let (mut transform, camera, actions) = q.single_mut();
     let motion = actions.axis_pair(CameraAction::Pan).unwrap();
-    let radius = camera.radius;
     let position = camera.focus;
+    // let radius = camera.radius;
 
     if motion.length_squared() == 0.0 {
         return;

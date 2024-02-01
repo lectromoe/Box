@@ -1,5 +1,4 @@
 use bevy::prelude::*;
-use leafwing_input_manager::prelude::*;
 
 #[derive(Default, Resource, States, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum CameraState {

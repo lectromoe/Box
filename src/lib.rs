@@ -10,11 +10,12 @@ pub mod console;
 /// UI debugger
 pub mod debugger;
 
+/// physics
+pub mod physics;
 
 /// Boxy prelude
 pub mod prelude {
     pub use crate::camera::*;
     pub use crate::controller::*;
-    pub use crate::console::*;
-    pub use crate::debugger::*;
+    pub use crate::physics::*;
 }

@@ -10,7 +10,7 @@ Plug-and-play tools to quickly integrate into your project
 ### Tools
 - Character controller `BoxyControllerPlugin`
 - Universal camera `BoxyCameraPlugin`
-- Character state machine
+- Physics `BoxyPhysicsPlugin` (using `bevy_rapier`)
 - In-game dev console (TODO)
 - Debug info UI (TODO)
 - Examples (TODO)
@@ -24,8 +24,9 @@ use boxy::prelude::*;
 
 fn main() {
     App::new()
-        .add_plugins(BoxyCameraPlugin)
         .add_plugins(BoxyControllerPlugin)
+        .add_plugins(BoxyPhysicsPlugin)
+        .add_plugins(BoxyCameraPlugin)
         /// ...
         .run();
 }

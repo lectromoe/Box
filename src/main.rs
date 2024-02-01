@@ -22,8 +22,7 @@ fn main() {
                     ..default()
                 }),
         )
-        .add_plugins(RapierPhysicsPlugin::<NoUserData>::default())
-        .add_plugins(RapierDebugRenderPlugin::default())
+        .add_plugins(BoxyPhysicsPlugin)
         .add_plugins(BoxyCameraPlugin)
         .add_plugins(BoxyControllerPlugin)
         .add_systems(Startup, build_map)
