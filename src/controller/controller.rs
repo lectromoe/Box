@@ -125,7 +125,8 @@ fn spawn_player(mut commands: Commands) {
                 .build(),
             action_state: ActionState::default(),
         })
-        .insert(KinematicCharacterControllerOutput::default());
+        .insert(KinematicCharacterControllerOutput::default())
+        .insert(CameraTarget {});
 }
 
 fn update_gravity_force(

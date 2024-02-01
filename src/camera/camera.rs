@@ -11,6 +11,9 @@ pub struct Camera {
     zoom_sens: f32,
 }
 
+#[derive(Component)]
+pub struct CameraTarget();
+
 impl Default for Camera {
     fn default() -> Self {
         Camera {
@@ -197,21 +200,26 @@ fn update_camera_rot(
     }
 }
 
-fn update_camera_orb(mut q: Query<(&mut Transform, &Camera, &ActionState<CameraAction>)>) {
-    let (mut transform, camera, actions) = q.single_mut();
-    let motion = actions.axis_pair(CameraAction::Pan).unwrap();
-    let position = camera.focus;
-    // let radius = camera.radius;
-
-    if motion.length_squared() == 0.0 {
-        return;
-    }
+fn update_camera_orb(
+    mut camera: Query<(&mut Transform, &Camera, &ActionState<CameraAction>)>,
+    target: Query<(&Transform, &CameraTarget, Without<Camera>)>,
+) {
+    let (mut transform, camera, actions) = camera.single_mut();
+    let motion = actions.axis_pair(CameraAction::Pan).unwrap_or_default();
+    let position = if let Ok((position, _, _)) = target.get_single() {
+        position.translation
+    } else {
+        camera.focus
+    };
+    let radius = camera.radius;
 
     let sensitivity = 0.01; // Adjust the sensitivity based on your preference
     let delta_yaw = -sensitivity * motion.x();
     let delta_pitch = sensitivity * motion.y();
     let camera_local_x = transform.local_x();
+    let camera_local_z = transform.local_z();
 
+    transform.translation = position + camera_local_z * radius;
     transform.translate_around(position, Quat::from_axis_angle(Vec3::Y, delta_yaw));
     transform.translate_around(position, Quat::from_axis_angle(camera_local_x, delta_pitch));
     transform.look_at(position, Vec3::Y);
